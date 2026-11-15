@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" width="1200" height="660" role="img" aria-label="GitHub Actions 배포 파이프라인">
+  <title>배포 파이프라인</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1426"/><stop offset="1" stop-color="#0F1F33"/>
+    </linearGradient>
+    <linearGradient id="gate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F5B83D"/><stop offset="1" stop-color="#FF8A3D"/>
+    </linearGradient>
+    <linearGradient id="go" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF5A5F"/><stop offset="1" stop-color="#D93A4A"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8FB4D9"/>
+    </marker>
+    <style>
+      text { font-family: Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Segoe UI', sans-serif; fill: #E6EDF7; }
+      .row { fill: #FFFFFF; fill-opacity: 0.03; stroke: #2A3B5A; stroke-width: 1.5; }
+      .card { fill: #16233B; stroke: #2A3B5A; stroke-width: 1.5; }
+      .h { font-size: 17px; font-weight: 700; }
+      .s { font-size: 14px; fill: #A9BAD3; }
+      .tag { font-size: 14px; font-weight: 800; }
+      .line { stroke: #8FB4D9; stroke-width: 2; fill: none; }
+      .num { font-size: 14px; font-weight: 800; fill: #0B1426; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="660" rx="24" fill="url(#bg)"/>
+  <text x="40" y="56" font-size="28" font-weight="800">배포 파이프라인</text>
+  <text x="246" y="56" class="s" font-size="16">브랜치는 main 하나 · 트렁크 기반</text>
+  <g transform="translate(866,30)">
+    <rect width="294" height="38" rx="19" fill="#3DDC97" fill-opacity="0.14" stroke="#3DDC97" stroke-opacity="0.6"/>
+    <path d="M22,13 a6,6 0 0 1 12,0 v4 h-12 z" fill="none" stroke="#3DDC97" stroke-width="2.5"/>
+    <rect x="19" y="17" width="18" height="12" rx="3" fill="#3DDC97"/>
+    <text x="48" y="25" font-size="15" font-weight="700" fill="#BFF5DC">OIDC로 역할 위임 · 장기 키 없음</text>
+  </g>
+
+  <!-- 1. PR -->
+  <rect class="row" x="40" y="92" width="1120" height="150" rx="18"/>
+  <rect x="60" y="106" width="120" height="28" rx="14" fill="#5CC8FF"/>
+  <text class="tag" x="120" y="125" text-anchor="middle" fill="#0B1426">Pull Request</text>
+  <text class="s" x="194" y="125">병합 전 두 환경의 변경을 미리 본다</text>
+  <rect class="card" x="60" y="148" width="250" height="78" rx="14"/>
+  <text class="h" x="80" y="178">검사</text>
+  <text class="s" x="80" y="204">fmt · validate · 모듈 test</text>
+  <path class="line" d="M310,187 C350,187 350,170 386,170" marker-end="url(#arr)"/>
+  <path class="line" d="M310,187 C350,187 350,212 386,212" marker-end="url(#arr)"/>
+  <rect class="card" x="390" y="148" width="220" height="40" rx="12"/>
+  <text class="h" x="410" y="174">plan dev</text>
+  <rect class="card" x="390" y="194" width="220" height="40" rx="12"/>
+  <text class="h" x="410" y="220">plan main</text>
+  <text class="s" x="640" y="174">plan 역할: 읽기 전용</text>
+  <text class="s" x="640" y="200">상태 읽기 + 잠금 파일만 쓴다</text>
+  <text class="s" x="640" y="226">백업 객체 읽기는 거부</text>
+
+  <!-- 2. main 병합 -->
+  <rect class="row" x="40" y="262" width="1120" height="228" rx="18"/>
+  <rect x="60" y="276" width="120" height="28" rx="14" fill="#FF5A5F"/>
+  <text class="tag" x="120" y="295" text-anchor="middle" fill="#FFFFFF">main 병합</text>
+  <text class="s" x="194" y="295">dev 먼저, 운영은 사람이 승인한다</text>
+
+  <g transform="translate(60,322)">
+    <rect class="card" width="190" height="140" rx="16"/>
+    <circle cx="28" cy="30" r="13" fill="#8FB4D9"/><text class="num" x="28" y="35" text-anchor="middle">1</text>
+    <text class="h" x="20" y="76">검사</text>
+    <text class="s" x="20" y="102">PR과 같은 검사</text>
+  </g>
+  <path class="line" d="M250,392 H278" marker-end="url(#arr)"/>
+  <g transform="translate(282,322)">
+    <rect class="card" width="200" height="140" rx="16" stroke="#3DDC97"/>
+    <circle cx="28" cy="30" r="13" fill="#3DDC97"/><text class="num" x="28" y="35" text-anchor="middle">2</text>
+    <text class="h" x="20" y="76">apply dev</text>
+    <text class="s" x="20" y="102">dev Environment</text>
+    <text class="s" x="20" y="122">자동 적용</text>
+  </g>
+  <path class="line" d="M482,392 H510" marker-end="url(#arr)"/>
+  <g transform="translate(514,322)">
+    <rect class="card" width="200" height="140" rx="16"/>
+    <circle cx="28" cy="30" r="13" fill="#5CC8FF"/><text class="num" x="28" y="35" text-anchor="middle">3</text>
+    <text class="h" x="20" y="76">plan main</text>
+    <text class="s" x="20" y="102">plan을 파일로 저장</text>
+    <text class="s" x="20" y="122">실행 요약에 표시</text>
+  </g>
+  <path class="line" d="M714,392 H742" marker-end="url(#arr)"/>
+  <g transform="translate(746,322)">
+    <rect width="190" height="140" rx="16" fill="url(#gate)"/>
+    <circle cx="28" cy="30" r="13" fill="#0B1426"/><text x="28" y="35" text-anchor="middle" font-size="14" font-weight="800" fill="#F5B83D">4</text>
+    <g transform="translate(150,30)" fill="none" stroke="#0B1426" stroke-width="3">
+      <path d="M-9,0 l6,6 l12,-12"/>
+    </g>
+    <text x="20" y="76" font-size="17" font-weight="800" fill="#0B1426">승인 게이트</text>
+    <text x="20" y="102" font-size="14" font-weight="600" fill="#3A2400">main Environment</text>
+    <text x="20" y="122" font-size="14" font-weight="600" fill="#3A2400">필수 승인자</text>
+  </g>
+  <path class="line" d="M936,392 H964" marker-end="url(#arr)"/>
+  <g transform="translate(968,322)">
+    <rect width="172" height="140" rx="16" fill="url(#go)"/>
+    <circle cx="28" cy="30" r="13" fill="#FFFFFF"/><text class="num" x="28" y="35" text-anchor="middle" fill="#D93A4A">5</text>
+    <text x="20" y="76" font-size="17" font-weight="800" fill="#FFFFFF">apply main</text>
+    <text x="20" y="102" font-size="14" fill="#FFE3E3">승인된 plan을</text>
+    <text x="20" y="122" font-size="14" fill="#FFE3E3">그대로 적용</text>
+  </g>
+
+  <!-- 3. 상태 확인 -->
+  <rect class="row" x="40" y="510" width="1120" height="120" rx="18"/>
+  <rect x="60" y="524" width="120" height="28" rx="14" fill="#F5B83D"/>
+  <text class="tag" x="120" y="543" text-anchor="middle" fill="#0B1426">매시간 07분</text>
+  <text class="s" x="194" y="543">health 워크플로 · dev와 main을 각각 확인</text>
+  <g transform="translate(60,566)">
+    <rect class="card" width="340" height="48" rx="12"/>
+    <circle cx="26" cy="24" r="8" fill="#3DDC97"/>
+    <text class="h" x="46" y="30">HTTP 응답</text>
+    <text class="s" x="146" y="30">10초 안에 성공</text>
+  </g>
+  <g transform="translate(416,566)">
+    <rect class="card" width="360" height="48" rx="12"/>
+    <circle cx="26" cy="24" r="8" fill="#5CC8FF"/>
+    <text class="h" x="46" y="30">백업 신선도</text>
+    <text class="s" x="154" y="30">마지막 S3 백업 3시간 이내</text>
+  </g>
+  <g transform="translate(792,566)">
+    <rect class="card" width="348" height="48" rx="12"/>
+    <circle cx="26" cy="24" r="8" fill="#FF5A5F"/>
+    <text class="h" x="46" y="30">실패하면</text>
+    <text class="s" x="132" y="30">워크플로 실패 메일</text>
+  </g>
+</svg>

@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" role="img" aria-label="보안과 환경 격리 계층">
+  <title>보안 · 격리</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1426"/><stop offset="1" stop-color="#0F1F33"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5CC8FF"/><stop offset="1" stop-color="#3DDC97"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8FB4D9"/>
+    </marker>
+    <style>
+      text { font-family: Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Segoe UI', sans-serif; fill: #E6EDF7; }
+      .card { fill: #16233B; stroke: #2A3B5A; stroke-width: 1.5; }
+      .h { font-size: 17px; font-weight: 700; }
+      .s { font-size: 14px; fill: #A9BAD3; }
+      .code { font-family: Consolas, 'D2Coding', monospace; font-size: 14px; fill: #BFE9FF; }
+      .ln { font-size: 15px; font-weight: 800; fill: #0B1426; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="700" rx="24" fill="url(#bg)"/>
+  <text x="40" y="56" font-size="28" font-weight="800">보안 · 격리</text>
+  <text x="196" y="56" class="s" font-size="16">같은 계정 안에서 dev와 main을 IAM으로 가른다</text>
+
+  <!-- 왼쪽: OIDC 역할 -->
+  <text x="40" y="104" font-size="15" font-weight="800" fill="#8FA3BF" letter-spacing="1">OIDC 역할 4종(5개)</text>
+  <g transform="translate(40,120)">
+    <rect class="card" width="380" height="96" rx="14"/>
+    <rect width="6" height="96" rx="3" fill="#5CC8FF"/>
+    <text class="code" x="24" y="32">santacut-terraform-plan</text>
+    <text class="h" x="24" y="60">PR · main 브랜치</text>
+    <text class="s" x="24" y="82">읽기 전용 · 잠금 파일만 쓴다</text>
+  </g>
+  <g transform="translate(40,230)">
+    <rect class="card" width="380" height="96" rx="14"/>
+    <rect width="6" height="96" rx="3" fill="#3DDC97"/>
+    <text class="code" x="24" y="32">santacut-terraform-apply-dev</text>
+    <text class="h" x="24" y="60">dev Environment에서만</text>
+    <text class="s" x="24" y="82">자기 상태 키 · 자기 접두사 리소스</text>
+  </g>
+  <g transform="translate(40,340)">
+    <rect class="card" width="380" height="96" rx="14"/>
+    <rect width="6" height="96" rx="3" fill="#FF5A5F"/>
+    <text class="code" x="24" y="32">santacut-terraform-apply-main</text>
+    <text class="h" x="24" y="60">main Environment에서만</text>
+    <text class="s" x="24" y="82">필수 승인자를 통과해야 맡는다</text>
+  </g>
+  <g transform="translate(40,450)">
+    <rect class="card" width="380" height="96" rx="14"/>
+    <rect width="6" height="96" rx="3" fill="#F5B83D"/>
+    <text class="code" x="24" y="32">santacut-app-deploy-&lt;env&gt;</text>
+    <text class="h" x="24" y="60">앱 레포 배포 워크플로</text>
+    <text class="s" x="24" y="82">자기 환경 인스턴스의 포트 열기·닫기만</text>
+  </g>
+  <path d="M432,333 H470" stroke="#8FB4D9" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+
+  <!-- 오른쪽: 방어 계층 -->
+  <text x="480" y="104" font-size="15" font-weight="800" fill="#8FA3BF" letter-spacing="1">방어 계층</text>
+  <g transform="translate(480,120)">
+    <rect class="card" width="680" height="64" rx="14"/>
+    <circle cx="32" cy="32" r="15" fill="#5CC8FF"/><text class="ln" x="32" y="38" text-anchor="middle">1</text>
+    <text class="h" x="62" y="28">Environment 태그 거부</text>
+    <text class="s" x="62" y="50">다른 환경 태그의 Lightsail 인스턴스 조작은 거부</text>
+  </g>
+  <g transform="translate(480,194)">
+    <rect class="card" width="680" height="64" rx="14"/>
+    <circle cx="32" cy="32" r="15" fill="#6FB6FF"/><text class="ln" x="32" y="38" text-anchor="middle">2</text>
+    <text class="h" x="62" y="28">Route 53 레코드 이름 조건</text>
+    <text class="s" x="62" y="50">자기 환경 도메인의 A 레코드만 바꾼다</text>
+  </g>
+  <g transform="translate(480,268)">
+    <rect class="card" width="680" height="64" rx="14"/>
+    <circle cx="32" cy="32" r="15" fill="#7FC4F0"/><text class="ln" x="32" y="38" text-anchor="middle">3</text>
+    <text class="h" x="62" y="28">환경별 권한 경계</text>
+    <text class="s" x="62" y="50">앱 사용자 상한: Bedrock 호출 + 자기 백업 버킷</text>
+  </g>
+  <g transform="translate(480,342)">
+    <rect class="card" width="680" height="64" rx="14"/>
+    <circle cx="32" cy="32" r="15" fill="#6FD3C0"/><text class="ln" x="32" y="38" text-anchor="middle">4</text>
+    <text class="h" x="62" y="28">SSH는 운영자 CIDR만</text>
+    <text class="s" x="62" y="50">배포 동안만 러너 IP에 22번을 열고, 끝나면 닫는다</text>
+  </g>
+  <g transform="translate(480,416)">
+    <rect class="card" width="680" height="64" rx="14"/>
+    <circle cx="32" cy="32" r="15" fill="#4FD8A8"/><text class="ln" x="32" y="38" text-anchor="middle">5</text>
+    <text class="h" x="62" y="28">IPv4 전용</text>
+    <text class="s" x="62" y="50">IPv6 방화벽은 기본 전체 허용이라 쓰지 않는다</text>
+  </g>
+  <g transform="translate(480,490)">
+    <rect class="card" width="680" height="64" rx="14"/>
+    <circle cx="32" cy="32" r="15" fill="#3DDC97"/><text class="ln" x="32" y="38" text-anchor="middle">6</text>
+    <text class="h" x="62" y="28">비밀값은 코드·상태 밖</text>
+    <text class="s" x="62" y="50">앱 액세스 키는 사람이 발급해 인스턴스에만 둔다</text>
+  </g>
+  <!-- 방패 -->
+  <g transform="translate(1146,96) scale(0.6)">
+    <path d="M0,-22 L22,-14 V4 C22,18 12,26 0,32 C-12,26 -22,18 -22,4 V-14 z" fill="url(#shield)" opacity="0.9"/>
+    <path d="M-8,4 l6,6 l11,-12" fill="none" stroke="#0B1426" stroke-width="3"/>
+  </g>
+
+  <!-- 남은 위험 -->
+  <g transform="translate(40,578)">
+    <rect width="1120" height="92" rx="16" fill="#F5B83D" fill-opacity="0.10" stroke="#F5B83D" stroke-opacity="0.55"/>
+    <path d="M30,24 L48,56 H12 z" fill="#F5B83D"/>
+    <rect x="28.5" y="34" width="3" height="11" fill="#0B1426"/><rect x="28.5" y="48" width="3" height="3" fill="#0B1426"/>
+    <text x="66" y="38" font-size="17" font-weight="800" fill="#FFD98A">IAM으로 막지 못하는 위험도 적어 둔다</text>
+    <text class="s" x="66" y="66">고정 IP · 애드온 · 키 페어 가져오기는 환경별 조건이 없다.</text>
+    <text class="s" x="452" y="66">Environment 브랜치 제한과 PR 리뷰로 막는다.</text>
+  </g>
+</svg>
