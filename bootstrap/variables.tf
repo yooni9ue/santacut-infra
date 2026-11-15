@@ -1,16 +1,16 @@
 variable "infra_oidc_subject_repo" {
   description = <<-EOT
     santacut-infra 레포의 GitHub OIDC sub 앞부분. 2026-07-15 이후 만든 레포는 불변 ID 형식
-    (repo:OWNER@OWNER_ID/REPO@REPO_ID)을 쓴다. 첫 워크플로 실행에서 실제 sub를 확인해 넣는다(docs/operations.md 4단계).
+    (repo:OWNER@OWNER_ID/REPO@REPO_ID)을 쓴다. 기본값은 2026-11-16에 GitHub API로 확인한 조직·레포 ID로 만든 값이다(docs/operations.md 4단계).
   EOT
   type        = string
-  default     = "repo:yooni9ue/santacut-infra"
+  default     = "repo:yooni9ue@356647612/santacut-infra@1458963706"
 }
 
 variable "app_oidc_subject_repo" {
   description = "앱 레포(yooni9ue/santacut)의 GitHub OIDC sub 앞부분. 형식은 infra_oidc_subject_repo와 같다."
   type        = string
-  default     = "repo:yooni9ue/santacut"
+  default     = "repo:yooni9ue@356647612/santacut@1457838283"
 }
 
 variable "domain_name" {

@@ -76,10 +76,10 @@ Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개�
 
 ### OIDC sub 형식 확인
 
-2026-07-15 이후 만든 레포는 OIDC 토큰의 `sub`가 `repo:OWNER@OWNER_ID/REPO@REPO_ID:...` 형식이다. bootstrap 변수 `infra_oidc_subject_repo`, `app_oidc_subject_repo` 기본값은 예전 형식(`repo:OWNER/REPO`)이다.
+2026-07-15 이후 만든 레포는 OIDC 토큰의 `sub`가 `repo:OWNER@OWNER_ID/REPO@REPO_ID:...` 형식이다. 두 레포 모두 그 이후에 만들어져서, bootstrap 변수 `infra_oidc_subject_repo`, `app_oidc_subject_repo` 기본값을 이 형식으로 넣어 두었다(조직 `yooni9ue` ID 356647612, `santacut-infra` 1458963706, `santacut` 1457838283).
 
-1. 레포를 만든 뒤 `gh api repos/yooni9ue/santacut-infra --jq '.id, .owner.id'`로 두 ID를 확인한다.
-2. 새 형식이면 `bootstrap/terraform.tfvars`에 아래처럼 넣고 bootstrap을 다시 적용한다. 앱 레포도 같은 방법으로 넣는다.
+1. 레포를 다시 만들었다면 `gh api repos/yooni9ue/santacut-infra --jq '.id, .owner.id'`로 ID를 확인한다.
+2. ID가 바뀌었으면 `bootstrap/terraform.tfvars`에 아래처럼 넣고 bootstrap을 다시 적용한다. 앱 레포도 같은 방법으로 넣는다.
 
    ```hcl
    infra_oidc_subject_repo = "repo:yooni9ue@<OWNER_ID>/santacut-infra@<REPO_ID>"
