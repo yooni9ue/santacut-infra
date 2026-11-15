@@ -1,0 +1,4 @@
+# terraform.tfvars로 복사해 채운다. terraform.tfvars는 커밋하지 않는다.
+domain_name         = "santacut.example"
+monthly_budget_usd  = 40
+budget_alert_emails = ["operator@example.com"]
