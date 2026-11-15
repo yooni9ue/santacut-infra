@@ -1,0 +1,46 @@
+# 15분마다 서비스 응답과 S3 백업 신선도를 확인한다. 실패하면 GitHub가 워크플로 실패 메일을 보낸다.
+# 인스턴스 상태 알람(StatusCheckFailed)은 컨테이너가 죽어도 울리지 않아서 HTTP로 직접 본다.
+name: health
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, main]
+    steps:
+      - name: 대상 확인
+        id: target
+        run: |
+          if [ "${{ matrix.env }}" = "dev" ] && [ "${{ vars.DEV_ENABLED }}" = "false" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ matrix.env }}" = "dev" ]; then host="dev.${{ vars.DOMAIN_NAME }}"; else host="${{ vars.DOMAIN_NAME }}"; fi
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+      - name: 서비스 응답
+        if: steps.target.outputs.skip != 'true'
+        run: curl --fail --silent --show-error --max-time 10 -o /dev/null "https://${{ steps.target.outputs.host }}${{ vars.HEALTH_PATH || '/v3/api-docs' }}"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        if: steps.target.outputs.skip != 'true'
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ap-northeast-2
+      - name: 백업 신선도(3시간 이내)
+        if: steps.target.outputs.skip != 'true'
+        run: |
+          bucket=$(aws s3api list-buckets --query "Buckets[?starts_with(Name, 'santacut-${{ matrix.env }}-backup-')].Name | [0]" --output text)
+          latest=$(aws s3api list-objects-v2 --bucket "$bucket" --prefix sqlite/ --query "sort_by(Contents, &LastModified)[-1].LastModified" --output text)
+          echo "최근 백업: $latest"
+          [ "$latest" != "None" ] || { echo "백업 객체가 없다"; exit 1; }
+          age=$(( $(date -u +%s) - $(date -u -d "$latest" +%s) ))
+          [ "$age" -le 10800 ] || { echo "마지막 백업이 ${age}초 전이다"; exit 1; }
