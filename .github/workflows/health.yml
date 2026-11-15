@@ -1,10 +1,10 @@
-# 15분마다 서비스 응답과 S3 백업 신선도를 확인한다. 실패하면 GitHub가 워크플로 실패 메일을 보낸다.
+# 매시간 서비스 응답과 S3 백업 신선도를 확인한다. 실패하면 GitHub가 워크플로 실패 메일을 보낸다.
 # 인스턴스 상태 알람(StatusCheckFailed)은 컨테이너가 죽어도 울리지 않아서 HTTP로 직접 본다.
 name: health
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions:

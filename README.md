@@ -32,6 +32,7 @@ GitHub Actions(OIDC) ──plan/apply──▶ Terraform 상태(S3, 네이티브
 | Lightsail 자동 스냅숏 | 약 1~3 | GB당 0.05, 증분 저장이라 실제 사용량에 따라 다름(추정) |
 | Route 53 호스팅 영역 | 0.5 | |
 | S3(상태·백업) | 1 미만 | 수 GB 이하 |
+| GitHub Actions | 0 | 공개 레포 표준 러너 무료. 상태 확인은 매시간 2잡 |
 | **고정비 합계** | **약 26~28** | |
 | Bedrock Claude Haiku 5.5 | 상한 약 3~4(추정) | 아래 계산 |
 

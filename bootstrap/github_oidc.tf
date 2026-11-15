@@ -236,11 +236,13 @@ data "aws_iam_policy_document" "apply" {
     }
   }
 
-  # 인스턴스와 키 페어는 자기 Environment 태그를 달고서만 만든다(태그 없는 생성도 거부).
+  # 인스턴스는 자기 Environment 태그를 달고서만 만든다(태그 없는 생성도 거부).
+  # ImportKeyPair는 요청에 태그가 없어 조건을 걸 수 없다. 프로바이더가 가져온 뒤 TagResource로 태그를 다는데,
+  # 그 태그 값은 아래 DenyRetaggingToOtherEnvironment가 자기 환경으로만 허용한다.
   statement {
     sid       = "DenyCreatingWithoutOwnEnvironmentTag"
     effect    = "Deny"
-    actions   = ["lightsail:CreateInstances", "lightsail:ImportKeyPair"]
+    actions   = ["lightsail:CreateInstances"]
     resources = ["*"]
 
     condition {

@@ -109,12 +109,23 @@ Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개�
 
 승인자는 같은 실행의 `plan-main` 잡 실행 요약에 있는 plan을 보고 승인한다. 승인하면 그 plan이 그대로 적용된다. 승인 대기가 오래된 실행은 거절하고, 새 실행으로 진행한다.
 
+### 레포 공개 범위
+
+이 레포는 **공개 레포**(또는 GitHub Enterprise)여야 한다. Free·Pro·Team 플랜의 비공개 레포에서는 Environment의 Required reviewers가 동작하지 않아 운영 적용이 승인 없이 진행되고, Actions 사용량도 무료 포함분을 넘을 수 있다. Environment 설정 후 승인자가 실제로 걸렸는지 확인한다.
+
+```sh
+gh api repos/yooni9ue/santacut-infra/environments/main --jq .protection_rules
+```
+
+비공개로 써야 하면 승인을 사람이 로컬 apply로 대신하고, 상태 확인은 인스턴스 cron으로 옮긴다.
+
 ### IAM으로 막지 못하는 위험
 
 dev와 main이 같은 계정이라 환경 분리는 이름 접두사와 `Environment` 태그 조건으로 한다. 아래는 AWS가 리소스 단위 조건을 지원하지 않아 dev apply 역할에도 열려 있다. dev Environment의 브랜치 제한(위)과 PR 리뷰가 이 위험을 막는다.
 
 - Lightsail 고정 IP: 태그를 지원하지 않아 `Attach/Detach/ReleaseStaticIp`를 환경별로 막을 수 없다.
 - Lightsail 애드온: `EnableAddOn/DisableAddOn`은 태그 조건이 평가되지 않아 운영 자동 스냅숏을 끌 수 있다. 8단계의 애드온 확인으로 알아차린다.
+- Lightsail 키 페어 가져오기: `ImportKeyPair` 요청에는 태그가 없어 생성 시점에 환경을 강제할 수 없다. 이어지는 태그 달기는 자기 환경 값으로만 허용된다.
 
 ## 5. 환경 적용과 첫 부팅 확인
 
@@ -238,7 +249,10 @@ sudo install -o ubuntu -g ubuntu -m 0750 /opt/santacut/current/scripts/backup.sh
 
 ### 자동 확인 (GitHub Actions)
 
-`.github/workflows/health.yml`이 15분마다 두 환경의 HTTP 응답과 S3 백업 신선도(마지막 백업 3시간 이내)를 확인한다. 실패하면 GitHub가 실패 메일을 보낸다. 인스턴스 상태 알람은 컨테이너가 죽어도 울리지 않기 때문에 이 확인이 필요하다.
+`.github/workflows/health.yml`이 매시간 두 환경의 HTTP 응답과 S3 백업 신선도(마지막 백업 3시간 이내)를 확인한다. 인스턴스 상태 알람은 컨테이너가 죽어도 울리지 않기 때문에 이 확인이 필요하다.
+
+- 실패 메일은 이 워크플로의 cron을 마지막으로 고친 사용자에게만 간다. 그 사용자의 GitHub 알림 설정에서 Actions 실패 메일이 켜져 있는지 확인한다.
+- 공개 레포는 60일 동안 활동이 없으면 스케줄 워크플로가 자동으로 꺼진다. 주간 점검에서 `gh workflow view health`로 켜져 있는지 보고, 꺼졌으면 `gh workflow enable health`로 켠다.
 
 ### Lightsail 알람
 
@@ -258,6 +272,7 @@ done
 
 ### 주간 점검
 
+- 상태 확인 워크플로가 켜져 있는지: `gh workflow view health`(최근 실행 시각 확인).
 - 디스크: `df -h /`. 80%를 넘으면 오래된 이미지와 릴리스를 지운다. 배포 산출물은 첫 부팅 스크립트가 넣은 주간 정리 작업(`/etc/cron.weekly/santacut-cleanup`)이 지운다.
 - 자동 스냅숏이 켜져 있는지: `aws lightsail get-instance --instance-name santacut-main-app --query 'instance.addOns'`의 `status`가 `Enabled`.
 - 백업 목록: `set -a; . /opt/santacut/backup.env; set +a; rclone lsl "$BACKUP_REMOTE" | tail -3`.
@@ -288,10 +303,12 @@ done
    docker compose --env-file /opt/santacut/.env -f deploy/compose.yml stop app
    vol=$(docker volume inspect santacut_santacut_data --format '{{ .Mountpoint }}')
    sudo cp "$vol/santacut.db" "/opt/santacut/backups/before-restore-$(date -u +%Y%m%dT%H%M%SZ).db"
-   sudo install -m 0644 /tmp/restore.sqlite "$vol/santacut.db"
+   sudo install -o 10001 -g 10001 -m 0600 /tmp/restore.sqlite "$vol/santacut.db"   # 앱 컨테이너 사용자(UID 10001)
    sudo rm -f "$vol/santacut.db-wal" "$vol/santacut.db-shm"
    docker compose --env-file /opt/santacut/.env -f deploy/compose.yml start app
    ```
+
+5. 쓰기가 되는지 확인한다: 참가자 등록이나 분석 제출 같은 쓰기 요청 하나가 성공해야 한다.
 
 인스턴스를 통째로 잃었으면(자동 스냅숏도 없음) 새 인스턴스를 `terraform apply`로 만들고 5~7단계를 다시 한 뒤 위 복원을 한다.
 
@@ -300,11 +317,13 @@ done
 인스턴스 이름과 번들은 바꾸면 재생성되는 속성이고 `prevent_destroy`가 걸려 있어, Terraform만으로는 교체할 수 없다. 아래 순서를 지킨다. 먼저 dev에서 리허설한다.
 
 1. 스냅숏을 준비한다.
-   - **사양 올리기(인스턴스 정상)**: 앱을 멈추고 마지막 백업을 올린 뒤 지금 시점 수동 스냅숏을 뜬다.
+   - **사양 올리기(인스턴스 정상)**: Caddy를 멈춰 요청을 끊고, 앱이 살아 있는 동안 마지막 백업을 올린 뒤(`backup.sh`는 실행 중인 앱 컨테이너 안에서 백업을 뜬다) 앱을 멈추고 지금 시점 수동 스냅숏을 뜬다.
 
      ```sh
-     docker compose --env-file /opt/santacut/.env -f /opt/santacut/current/deploy/compose.yml stop app
+     compose="docker compose --env-file /opt/santacut/.env -f /opt/santacut/current/deploy/compose.yml"
+     $compose stop caddy
      /opt/santacut/backup.sh
+     $compose stop app
      aws lightsail create-instance-snapshot --instance-name santacut-main-app \
        --instance-snapshot-name santacut-main-manual-$(date -u +%Y%m%d%H%M)
      ```
@@ -337,7 +356,15 @@ done
 6. `terraform import module.app.aws_lightsail_instance.app santacut-main-app`
 7. 번들을 바꿨다면 `envs/<env>/variables.tf`의 `bundle_id` **기본값을 PR로 바꿔 병합**한다. CI는 이 기본값을 쓰므로 로컬 `terraform.tfvars`만 바꾸면 다음 병합의 plan이 재생성을 계획하다 `prevent_destroy`에 걸린다. 월 고정비가 바뀌므로 README 비용 표와 bootstrap `monthly_budget_usd`도 함께 고친다.
 8. `terraform apply`(또는 병합 후 CI)로 고정 IP 연결, 방화벽, 자동 스냅숏을 다시 맞추고, 실행 요약의 plan이 인스턴스 교체를 계획하지 않는지 확인한다. 새 인스턴스의 기본 방화벽은 22/80 전체 개방이므로 이 단계를 빼먹지 않는다.
-9. 장애 복구였다면 스냅숏 시점의 SQLite는 최대 하루 전이다. 더 최신인 S3 백업으로 덮어쓸지 판단하고, 덮어쓰면 위 복원 절차를 따른다.
+9. 앱을 다시 띄운다. 스냅숏은 앱을 수동으로 멈춘 상태에서 떴기 때문에 `restart: unless-stopped` 정책으로는 자동으로 올라오지 않는다.
+
+   ```sh
+   docker compose --env-file /opt/santacut/.env -f /opt/santacut/current/deploy/compose.yml start app caddy
+   curl -fsS https://<도메인>/v3/api-docs -o /dev/null && echo OK
+   ```
+
+10. 8절의 Lightsail 알람이 남아 있는지 `aws lightsail get-alarms`로 확인하고, 없으면 다시 건다.
+11. 장애 복구였다면 스냅숏 시점의 SQLite는 최대 하루 전이다. 더 최신인 S3 백업으로 덮어쓸지 판단하고, 덮어쓰면 위 복원 절차를 따른다.
 
 ## 10. Bedrock 예산 차단과 해제
 
