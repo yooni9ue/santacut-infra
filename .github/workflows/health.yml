@@ -30,7 +30,7 @@ jobs:
           if [ "${{ matrix.env }}" = "main" ] && [ "${{ vars.MAIN_ENABLED }}" != "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-          if [ "${{ matrix.env }}" = "dev" ]; then host="dev.${{ vars.DOMAIN_NAME }}"; else host="${{ vars.DOMAIN_NAME }}"; fi
+          if [ "${{ matrix.env }}" = "dev" ]; then host="api-dev.${{ vars.DOMAIN_NAME }}"; else host="api.${{ vars.DOMAIN_NAME }}"; fi
           echo "host=$host" >> "$GITHUB_OUTPUT"
       - name: 서비스 응답
         if: steps.target.outputs.skip != 'true'

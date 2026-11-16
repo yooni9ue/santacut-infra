@@ -11,8 +11,8 @@ locals {
 
   # 환경별로 바꿀 수 있는 DNS 레코드 이름(Route 53 정규화 형식: 소문자, 끝 점 없음). 도메인이 없으면 비어 있다.
   record_names = local.domain == null ? {} : {
-    dev  = "dev.${local.domain}"
-    main = local.domain
+    dev  = "api-dev.${local.domain}"
+    main = "api.${local.domain}"
   }
 
   # Terraform 모듈이 쓰는 Lightsail 액션만 허용한다. 로드 밸런서·DB·컨테이너처럼 월 고정비가 드는

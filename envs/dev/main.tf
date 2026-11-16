@@ -52,7 +52,7 @@ module "app" {
   source = "../../modules/santacut_app"
 
   environment       = "dev"
-  fqdn              = local.domain == null ? null : "dev.${local.domain}"
+  fqdn              = local.domain == null ? null : "api-dev.${local.domain}"
   zone_id           = one(data.aws_route53_zone.main[*].zone_id)
   bundle_id         = var.bundle_id
   ssh_public_key    = var.ssh_public_key

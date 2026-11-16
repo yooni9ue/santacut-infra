@@ -59,8 +59,8 @@ bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-m
 1. `bootstrap/terraform.tfvars`에 `domain_name`을 넣고 bootstrap을 다시 적용한다. 호스팅 영역이 생기고 apply 역할에 레코드 권한이 붙는다.
 2. 가비아 도메인 관리 → 네임서버 설정에서 `name_servers` 출력값 4개를 등록한다. 반영까지 최대 하루가 걸릴 수 있다. `dig NS <도메인>`으로 확인한다.
 3. 레포 변수 `DOMAIN_NAME`에 같은 도메인을 넣는다.
-4. `workflow_dispatch`로 terraform 워크플로를 돌리거나 PR을 병합한다. dev의 A 레코드(`dev.<도메인>`)가 생긴다.
-5. 로컬 앱 설정 파일에 `DOMAIN`, `ACME_EMAIL`을 채우고 `PUBLIC_BASE_URL=https://<도메인>`, `SESSION_SECURE=true`로 바꾼다. `scripts/put-secrets.sh`로 다시 올리고 앱을 다시 띄운다(6절). Caddyfile은 고치지 않는다.
+4. `workflow_dispatch`로 terraform 워크플로를 돌리거나 PR을 병합한다. 서버 A 레코드가 생긴다. dev는 `api-dev.<도메인>`, 운영은 `api.<도메인>`이다. 루트와 `www`는 프론트용으로 비워 둔다.
+5. 로컬 앱 설정 파일에 `DOMAIN`, `ACME_EMAIL`을 채우고 `PUBLIC_BASE_URL=https://api-dev.<도메인>`(운영은 `api.<도메인>`), `SESSION_SECURE=true`로 바꾼다. `scripts/put-secrets.sh`로 다시 올리고 앱을 다시 띄운다(6절). Caddyfile은 고치지 않는다.
 
 ## 3. Bedrock 모델 활성화
 
@@ -471,7 +471,7 @@ done
 
    ```sh
    docker compose --env-file /run/santacut/app.env -f /opt/santacut/current/deploy/compose.yml start app caddy
-   curl -fsS https://<도메인>/v3/api-docs -o /dev/null && echo OK
+   curl -fsS https://api.<도메인>/v3/api-docs -o /dev/null && echo OK
    ```
 
 10. 8절의 Lightsail 알람이 남아 있는지 `aws lightsail get-alarms`로 확인하고, 없으면 다시 건다.
