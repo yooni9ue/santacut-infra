@@ -299,7 +299,7 @@ BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_buc
 
 ## 7. 앱 배포 연동 (앱 레포에서 할 일)
 
-- 앱 레포 GitHub Environment 이름을 `dev`, `main`으로 맞추고, 각각 배포 브랜치를 `main`으로 제한한다. 변수 `AWS_DEPLOY_ROLE_ARN`에 `app_deploy_role_arns.<env>`를 넣는다.
+- 앱 레포 GitHub Environment 이름을 `dev`, `main`으로 맞추고, 배포 브랜치를 `dev`는 `develop`, `main`은 `main`으로 제한한다. dev는 `develop` 푸시마다 자동 배포된다(앱 레포 `backend/docs/deployment.md`). 변수 `AWS_DEPLOY_ROLE_ARN`에 `app_deploy_role_arns.<env>`를 넣는다.
 - 완료(2026-11-16): 앱은 Bedrock 대신 Google Gemini 2.5 Flash를 부른다. 키는 `app.env`의 `GEMINI_API_KEY`다. AI 비용 보호는 10절에 있다.
 - 완료: 릴리스 묶음(tar)에 `scripts/deploy.sh`와 `scripts/backup.sh`가 함께 들어간다.
 - 완료: `backup.sh`에서 age 암호화를 뺐다. SQLite `.backup` 결과를 `$BACKUP_REMOTE`(`backups/sqlite`)에 올리면 S3가 KMS로 암호화한다. 올린 뒤 내려받아 대조하고, 로컬 복사본은 2일만 둔다. `BACKUP_AGE_RECIPIENT`는 없다.
@@ -319,7 +319,7 @@ aws lightsail close-instance-public-ports --instance-name santacut-main-app \
   --port-info fromPort=22,toPort=22,protocol=TCP,cidrs=${ip}/32
 ```
 
-미확인: 같은 22번에 CIDR만 다른 요청이 기존 운영자 CIDR과 합쳐지는지, 닫기가 러너 CIDR만 빼는지 22번 전체를 닫는지 API 문서에 적혀 있지 않다. **dev 첫 배포에서 연 직후와 닫은 직후 두 번** `get-instance-port-states`를 확인한다. 22번에 운영자 CIDR이 남아 있어야 한다. 다르게 동작하면 배포 역할에 `PutInstancePublicPorts`를 더하고, 워크플로가 운영자 CIDR을 포함한 전체 규칙을 다시 넣는 방식으로 바꾼다.
+확인(2026-11-17, dev): 열기는 22번 규칙에 CIDR을 더하고, 닫기는 지정한 CIDR만 뺀다. 운영자 CIDR은 배포 뒤에도 남는다. 앱 레포 `deploy-dev` 잡은 닫은 뒤 `get-instance-port-states`로 러너 CIDR이 빠졌는지 확인하고, 운영자 CIDR(`DEV_OPERATOR_SSH_CIDR`)이 없으면 다시 연다.
 
 공개 포트 규칙(`aws_lightsail_instance_public_ports`)을 바꾸는 apply는 리소스를 교체하면서 80/443을 몇 초 닫는다. 운영자 CIDR 변경은 트래픽이 적은 시간에 하고, 앱 배포 중에는 인프라 apply를 돌리지 않는다.
 
