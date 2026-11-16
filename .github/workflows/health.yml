@@ -44,7 +44,7 @@ jobs:
         if: steps.target.outputs.skip != 'true'
         run: |
           bucket=$(aws s3api list-buckets --query "Buckets[?starts_with(Name, 'santacut-${{ matrix.env }}-backup-')].Name | [0]" --output text)
-          latest=$(aws s3api list-objects-v2 --bucket "$bucket" --prefix sqlite/ --query "sort_by(Contents, &LastModified)[-1].LastModified" --output text)
+          latest=$(aws s3api list-objects-v2 --bucket "$bucket" --prefix backups/ --query "sort_by(Contents, &LastModified)[-1].LastModified" --output text)
           echo "최근 백업: $latest"
           [ "$latest" != "None" ] || { echo "백업 객체가 없다"; exit 1; }
           age=$(( $(date -u +%s) - $(date -u -d "$latest" +%s) ))
