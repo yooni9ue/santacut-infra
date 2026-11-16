@@ -43,6 +43,8 @@ bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-m
 
 ## 2. 도메인과 가비아 네임서버 위임
 
+현재 상태(2026-11-17): `santacut.me`를 가비아에서 Route 53으로 위임했다. dev는 `https://api-dev.santacut.me`로 HTTPS 접속하고, 루트·`www`·`dev`는 Vercel 화면을 가리킨다(`bootstrap/dns.tf`). 아래 "도메인 없이 쓰기"는 도메인을 비워 점검할 때만 쓴다.
+
 ### 도메인 없이 쓰기
 
 - `domain_name`을 비워 두면 Route 53 호스팅 영역과 A 레코드를 만들지 않는다. 비용은 0이다.
@@ -64,7 +66,7 @@ bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-m
 
 ## 3. AI(Gemini)와 개인정보 국외 이전
 
-앱은 Google Gemini 2.5 Flash로 점수를 낸다. AWS 쪽에 따로 활성화할 것은 없다. API 키는 Google AI Studio에서 받아 앱 설정의 `GEMINI_API_KEY`로 넣는다(6절 2).
+앱은 Google Gemini 3.5 Flash-Lite로 점수를 낸다. AWS 쪽에 따로 활성화할 것은 없다. API 키는 Google AI Studio에서 받아 앱 설정의 `GEMINI_API_KEY`로 넣는다(6절 2).
 
 ### 개인정보 국외 이전 고지
 
@@ -247,9 +249,9 @@ Compose는 이 파일을 읽는다. 앱 레포 `deploy/compose.yml`의 앱 서�
 
 Compose는 `env_file`을 `up`할 때만 읽는다. 설정을 바꿨으면 `docker compose --env-file /run/santacut/app.env -f /opt/santacut/current/deploy/compose.yml up -d --force-recreate`로 컨테이너를 다시 만든다.
 
-### 512MB 번들의 메모리
+### 번들과 메모리
 
-기본 번들 `nano_3_0`은 메모리가 512MB다. Caddy와 Spring을 함께 돌리기에 빠듯하다.
+모듈 기본 번들 `nano_3_0`은 메모리가 512MB라 Caddy와 Spring을 함께 돌리기에 빠듯했다. 그래서 dev는 2026-11-16에 `micro_3_0`(1GB)으로 올렸다(기동 212초 → 26초). 아래 제한은 512MB 때 정한 값을 그대로 둔다.
 
 - 첫 부팅 스크립트가 1GB 스왑(`/swapfile`)을 만들고 `vm.swappiness=10`으로 둔다. 스왑은 비상용이다.
 - 앱 레포 Compose가 메모리를 나눈다. 앱 `mem_limit: 400m`(JVM `-Xmx256m`, SerialGC, `-Xss512k`, `ExitOnOutOfMemoryError`), Caddy `mem_limit: 64m`.
@@ -300,7 +302,7 @@ BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_buc
 ## 7. 앱 배포 연동 (앱 레포에서 할 일)
 
 - 앱 레포 GitHub Environment 이름을 `dev`, `main`으로 맞추고, 배포 브랜치를 `dev`는 `develop`, `main`은 `main`으로 제한한다. dev는 `develop` 푸시마다 자동 배포된다(앱 레포 `backend/docs/deployment.md`). 변수 `AWS_DEPLOY_ROLE_ARN`에 `app_deploy_role_arns.<env>`를 넣는다.
-- 완료(2026-11-16): 앱은 Bedrock 대신 Google Gemini 2.5 Flash를 부른다. 키는 `app.env`의 `GEMINI_API_KEY`다. AI 비용 보호는 10절에 있다.
+- 완료(2026-11-16): 앱은 Bedrock 대신 Google Gemini 3.5 Flash-Lite를 부른다. 키는 `app.env`의 `GEMINI_API_KEY`다. AI 비용 보호는 10절에 있다.
 - 완료: 릴리스 묶음(tar)에 `scripts/deploy.sh`와 `scripts/backup.sh`가 함께 들어간다.
 - 완료: `backup.sh`에서 age 암호화를 뺐다. SQLite `.backup` 결과를 `$BACKUP_REMOTE`(`backups/sqlite`)에 올리면 S3가 KMS로 암호화한다. 올린 뒤 내려받아 대조하고, 로컬 복사본은 2일만 둔다. `BACKUP_AGE_RECIPIENT`는 없다.
 - 완료: Compose와 `deploy.sh`, `backup.sh`는 앱 설정을 `/run/santacut/app.env`에서 읽는다(6절 3).
@@ -523,7 +525,8 @@ rm -rf "$d"
 
 Gemini 비용은 AWS 청구서에 잡히지 않는다. AWS 계정 예산(`santacut-monthly`)은 Lightsail, S3 같은 AWS 비용만 본다. AI 비용은 아래 두 가지로 막는다.
 
-1. **앱 자체 한도**: 앱이 Gemini 사용액을 하루 0.5달러, 한 달 9달러에서 끊는다. 한도 설정은 앱 레포에 있다.
+1. **앱 자체 한도**: 앱이 호출 전에 비용을 어림해 한 달 9달러(`AI_BUDGET_MONTHLY_USD`)를 넘으면 부르지 않는다. 하루 한도(`AI_BUDGET_DAILY_USD`)는 기본으로 0(끔)이다. 한도 설정은 앱 레포에 있다.
+   - Gemini는 선불 크레딧으로 쓴다. 크레딧이 떨어지면 Gemini가 `429 RESOURCE_EXHAUSTED`로 막고, 앱은 작업을 실패시키지 않고 `QUEUED`에 둔 채 15분씩 쉰다. 크레딧을 채우면 이어서 처리한다. 24시간 넘게 처리하지 못한 작업은 만료된다.
 2. **Google Cloud 결제 예산 알림**: 운영자가 Google Cloud 콘솔(결제 → 예산 및 알림)에서 Gemini API 키가 속한 프로젝트에 예산을 만들고 알림 이메일을 건다. 알림만 보내고 호출은 막지 않는다. Terraform이 관리하지 않으므로 프로젝트 종료 때 직접 지운다.
 
 ## 11. dev 내리기
