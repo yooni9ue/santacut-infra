@@ -379,31 +379,89 @@ done
 
 ### S3 백업에서 SQLite 복원
 
-출시 전에 dev에서 한 번 리허설한다.
+2026-11-17 dev에서 이 절차대로 리허설했다. 앱이 멈춘 시간은 37초, 내려받기부터 끝까지는 56초였다. 명령은 모두 인스턴스에서 `ubuntu` 사용자로 그대로 붙여 넣으면 된다.
 
-1. 복원할 백업을 내려받는다(인스턴스에서).
+1. 셸을 준비하고 지금 DB의 지문을 남긴다. Compose 파일이 `APP_IMAGE`를 요구하므로 `current-image`에서 읽어 둔다. 이 값이 없으면 `docker compose` 명령이 모두 보간 오류로 실패한다.
+
+   ```sh
+   umask 077
+   cd /opt/santacut/current
+   export APP_IMAGE=$(cat /opt/santacut/current-image)
+   compose="docker compose --env-file /run/santacut/app.env -f deploy/compose.yml"
+   vol=$(docker volume inspect santacut_santacut_data --format '{{ .Mountpoint }}')
+   fp="SELECT 'participants',count(*) FROM participants UNION ALL SELECT 'assessments',count(*) FROM assessments UNION ALL SELECT 'analysis_jobs',count(*) FROM analysis_jobs UNION ALL SELECT 'shares',count(*) FROM shares UNION ALL SELECT 'regions',count(*) FROM regions; SELECT id, created_at FROM assessments ORDER BY created_at DESC LIMIT 1;"
+   $compose exec -T app sqlite3 /app/data/santacut.db "$fp" > /tmp/fp-before.txt; cat /tmp/fp-before.txt
+   ```
+
+   DB가 망가져서 복원하는 경우라면 지문은 건너뛴다.
+
+2. 복원할 백업을 내려받는다. 방금 상태로 되돌리는 리허설이면 먼저 `/opt/santacut/backup.sh`로 새 백업을 뜬다(마지막 줄이 `Off-host backup verified: <파일 이름>`).
 
    ```sh
    set -a; . /opt/santacut/backup.env; set +a
-   rclone lsl "$BACKUP_REMOTE" | tail -5
+   rclone lsf "$BACKUP_REMOTE" | tail -5        # 파일 이름이 UTC 시각이라 마지막이 최신이다
    rclone copyto "$BACKUP_REMOTE/santacut-<시각>.sqlite" /tmp/restore.sqlite
    ```
 
-2. 복호화는 S3가 한다. 앱 사용자에게 S3 경유 `kms:Decrypt`가 있어 따로 할 일이 없다. 2026-11 이전의 `sqlite/*.age` 백업만 PC에서 `age -d -i <개인키 파일>`로 푼다.
-3. 무결성을 확인한다: `sqlite3 /tmp/restore.sqlite 'PRAGMA integrity_check;'` 결과가 `ok`.
-4. 앱을 멈춘 뒤 볼륨의 DB를 바꾼다.
+   `Config file ... not found` 안내는 무시해도 된다. remote 설정은 `BACKUP_REMOTE` 안에 있다.
+
+3. 복호화는 S3가 한다. 앱 사용자에게 S3 경유 `kms:Decrypt`가 있어 따로 할 일이 없다. 2026-11 이전의 `sqlite/*.age` 백업만 PC에서 `age -d -i <개인키 파일>`로 푼다.
+4. 무결성을 확인한다. 호스트의 `sqlite3`를 쓴다. 결과가 `ok`가 아니면 여기서 멈추고 다른 시각의 백업을 받는다.
 
    ```sh
-   cd /opt/santacut/current
-   docker compose --env-file /run/santacut/app.env -f deploy/compose.yml stop app
-   vol=$(docker volume inspect santacut_santacut_data --format '{{ .Mountpoint }}')
-   sudo cp "$vol/santacut.db" "/opt/santacut/backups/before-restore-$(date -u +%Y%m%dT%H%M%SZ).db"
-   sudo install -o 10001 -g 10001 -m 0600 /tmp/restore.sqlite "$vol/santacut.db"   # 앱 컨테이너 사용자(UID 10001)
-   sudo rm -f "$vol/santacut.db-wal" "$vol/santacut.db-shm"
-   docker compose --env-file /run/santacut/app.env -f deploy/compose.yml start app
+   sqlite3 /tmp/restore.sqlite 'PRAGMA integrity_check;'
    ```
 
-5. 쓰기가 되는지 확인한다: 참가자 등록이나 분석 제출 같은 쓰기 요청 하나가 성공해야 한다.
+5. 앱과 Caddy를 멈추고 볼륨의 DB를 바꾼다. 바꾸기 전 DB는 `pre-restore-<시각>.sqlite`(600)로 남긴다. `sudo cp`는 `umask`를 따르지 않으므로 `install -m 0600`으로 복사한다. 볼륨의 DB 소유자는 앱 컨테이너 사용자(UID 10001)여야 한다.
+
+   ```sh
+   $compose stop caddy app
+   ts=$(date -u +%Y%m%dT%H%M%SZ)
+   sudo install -m 0600 "$vol/santacut.db" "/opt/santacut/backups/pre-restore-$ts.sqlite"
+   for x in wal shm; do sudo test -f "$vol/santacut.db-$x" && sudo install -m 0600 "$vol/santacut.db-$x" "/opt/santacut/backups/pre-restore-$ts.sqlite-$x"; done
+   sudo install -o 10001 -g 10001 -m 0600 /tmp/restore.sqlite "$vol/santacut.db"
+   sudo rm -f "$vol/santacut.db-wal" "$vol/santacut.db-shm"
+   ```
+
+6. 앱을 띄우고 healthy가 된 뒤 Caddy를 띄운다. Caddy는 앱이 healthy여야 뜬다(`depends_on: service_healthy`). 앱이 뜨는 데 30~40초 걸린다.
+
+   ```sh
+   $compose start app
+   until [ "$(docker inspect -f '{{.State.Health.Status}}' santacut-app-1)" = healthy ]; do sleep 3; done
+   $compose start caddy
+   ```
+
+7. 확인한다. 셋 다 통과해야 끝이다.
+
+   ```sh
+   $compose exec -T app sqlite3 /app/data/santacut.db "$fp" | diff /tmp/fp-before.txt - && echo 지문 일치
+   curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/actuator/health/readiness   # 200
+   curl -fsS -o /dev/null -w '%{http_code}\n' https://api-dev.santacut.me/v3/api-docs           # 200 (main은 운영 도메인)
+   rm -f /tmp/restore.sqlite /tmp/fp-before.txt
+   ```
+
+   지문 비교는 같은 시점의 백업으로 되돌릴 때만 의미가 있다. 더 오래된 백업이면 행 수가 백업 시점 값과 같은지만 본다.
+
+**중간에 실패하면** 5단계에서 남긴 파일을 되돌리고 6단계를 다시 한다.
+
+```sh
+sudo install -o 10001 -g 10001 -m 0600 "/opt/santacut/backups/pre-restore-$ts.sqlite" "$vol/santacut.db"
+sudo rm -f "$vol/santacut.db-wal" "$vol/santacut.db-shm"
+```
+
+`pre-restore-*` 파일은 `backup.sh`의 2일 정리 대상(`santacut-*`)이 아니다. 확인이 끝나면 직접 지운다.
+
+#### 특정 시점 백업 점검 (운영 DB는 건드리지 않음)
+
+오래된 객체도 KMS로 풀리는지는 임시 디렉터리에 받아서 확인한다. 2026-11-17 dev에서 3시간 전 객체와 가장 오래된 객체(약 11시간 전)가 모두 `ok`였다.
+
+```sh
+umask 077; set -a; . /opt/santacut/backup.env; set +a
+d=$(mktemp -d)
+rclone copyto "$BACKUP_REMOTE/santacut-<시각>.sqlite" "$d/old.sqlite"
+sqlite3 "$d/old.sqlite" 'PRAGMA integrity_check;'   # ok
+rm -rf "$d"
+```
 
 인스턴스를 통째로 잃었으면(자동 스냅숏도 없음) 새 인스턴스를 `terraform apply`로 만들고 5~7단계를 다시 한 뒤 위 복원을 한다.
 
