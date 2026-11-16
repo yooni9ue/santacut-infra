@@ -19,6 +19,7 @@ resource "aws_lightsail_instance" "app" {
   key_pair_name     = aws_lightsail_key_pair.deploy.name
   user_data = templatefile("${path.module}/cloud-init.sh", {
     backup_bucket = aws_s3_bucket.backup.bucket
+    kms_key_arn   = var.kms_key_arn
   })
 
   # IPv6 방화벽은 IPv4와 따로 관리되고 기본값이 전체 허용이다. AAAA 레코드가 없으니 IPv4만 쓴다.
@@ -33,7 +34,8 @@ resource "aws_lightsail_instance" "app" {
 
   lifecycle {
     # user_data를 고치면 인스턴스가 다시 만들어져 SQLite 데이터가 사라진다.
-    # 초기 설정 변경은 인스턴스에 직접 적용하고, 재생성은 의도할 때만 한다.
+    # cloud-init은 첫 부팅에만 돌므로 바꾼 내용은 새 인스턴스에만 반영된다. 기존 인스턴스는 직접 고치고,
+    # 새 설정으로 갈아타려면 docs/operations.md 9절 교체 절차를 따른다.
     ignore_changes  = [user_data]
     prevent_destroy = true
   }

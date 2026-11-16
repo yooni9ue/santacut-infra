@@ -305,6 +305,15 @@ run "cloud_init_fetches_secrets_from_own_bucket" {
     error_message = "첫 부팅 스크립트에 age 설치가 남아 있으면 안 된다."
   }
 
+  assert {
+    condition     = strcontains(aws_lightsail_instance.app.user_data, "sse_kms_key_id='arn:aws:kms:ap-northeast-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab',upload_cutoff=5G:santacut-dev-backup-123456789012/backups/sqlite")
+    error_message = "backup.env는 환경 KMS 키와 자기 백업 버킷의 backups/sqlite를 가리켜야 한다."
+  }
+
+  assert {
+    condition     = strcontains(aws_lightsail_instance.app.user_data, "0 * * * * /opt/santacut/backup.sh >> /opt/santacut/backups/backup.log 2>&1")
+    error_message = "첫 부팅 스크립트는 매시 백업 crontab을 설치해야 한다."
+  }
 }
 
 run "kms_alias_instead_of_arn_is_rejected" {

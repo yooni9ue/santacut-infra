@@ -42,7 +42,7 @@ usermod -aG docker ubuntu
 # 보안 업데이트를 자동으로 적용한다.
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
-# 앱 디렉터리. 앱 IAM 사용자 자격 증명(aws/credentials)과 backup.env는 운영자가 직접 채운다(docs/operations.md 6절).
+# 앱 디렉터리. 앱 IAM 사용자 자격 증명(aws/credentials)은 운영자가 직접 채운다(docs/operations.md 6절).
 install -d -m 0750 -o ubuntu -g ubuntu /opt/santacut /opt/santacut/releases /opt/santacut/backups /opt/santacut/bin
 install -d -m 0700 -o ubuntu -g ubuntu /opt/santacut/aws
 
@@ -51,7 +51,8 @@ install -d -m 0700 -o ubuntu -g ubuntu /opt/santacut/aws
 cat >/opt/santacut/bin/fetch-secrets.sh <<'FETCH'
 #!/bin/bash
 # S3의 암호화된 앱 설정을 /run/santacut/app.env(tmpfs, 0600, ubuntu)로 받는다. 값은 출력하지 않는다.
-# 앱(Spring)이 Bedrock을 부를 액세스 키는 S3에 두지 않고, 자격 증명 파일에서 읽어 받은 설정 뒤에 붙인다.
+# GHCR_USER, GHCR_TOKEN이 있으면 ubuntu로 ghcr.io에 로그인하고, 앱 컨테이너가 보지 못하게 두 키를 빼고 쓴다.
+# 두 값은 따옴표 없이 KEY=값 형식이어야 한다.
 set -euo pipefail
 umask 077
 export AWS_SHARED_CREDENTIALS_FILE=/opt/santacut/aws/credentials
@@ -63,21 +64,27 @@ dst="$dir/app.env"
 [[ -d "$dir" ]] || install -d -m 0700 "$dir"
 for i in 1 2 3 4 5; do
   if rclone copyto --quiet "$src" "$dst.tmp"; then
-    {
-      tr -d '\015' <"$dst.tmp"
-      echo
-      tr -d '\015' <"$AWS_SHARED_CREDENTIALS_FILE" | awk '
-        match($0, /^aws_access_key_id[ \t]*=[ \t]*/)     { print "AWS_ACCESS_KEY_ID=" substr($0, RLENGTH + 1) }
-        match($0, /^aws_secret_access_key[ \t]*=[ \t]*/) { print "AWS_SECRET_ACCESS_KEY=" substr($0, RLENGTH + 1) }
-      '
-    } >"$dst.new"
+    tr -d '\015' <"$dst.tmp" >"$dst.raw"
     rm -f "$dst.tmp"
+    ghcr_user=$(sed -n 's/^GHCR_USER=//p' "$dst.raw" | tail -n 1)
+    ghcr_token=$(sed -n 's/^GHCR_TOKEN=//p' "$dst.raw" | tail -n 1)
+    grep -v -E '^GHCR_(USER|TOKEN)=' "$dst.raw" >"$dst.new" || true
+    rm -f "$dst.raw"
     chmod 0600 "$dst.new"
     mv -f "$dst.new" "$dst"
+    # 토큰은 표준 입력으로만 넘긴다. 로그인에 실패해도 앱 설정은 이미 받았으므로 경고만 남긴다.
+    if [[ -n "$ghcr_user" && -n "$ghcr_token" ]]; then
+      if printf '%s' "$ghcr_token" | docker login ghcr.io -u "$ghcr_user" --password-stdin >/dev/null; then
+        echo "fetch-secrets: GHCR 로그인 OK"
+      else
+        echo "fetch-secrets: GHCR 로그인 실패" >&2
+      fi
+    fi
+    unset ghcr_token
     echo "fetch-secrets: OK"
     exit 0
   fi
-  rm -f "$dst.tmp" "$dst.new"
+  rm -f "$dst.tmp" "$dst.raw" "$dst.new"
   sleep $((i * 5))
 done
 echo "fetch-secrets: 앱 설정을 받지 못했다" >&2
@@ -111,6 +118,30 @@ WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
 systemctl enable santacut-secrets.service
+
+# backup.sh가 읽는 백업 대상. 비밀값은 없고 키는 자격 증명 파일에서 읽는다(앱 레포 deploy/backup.env.example).
+# 버킷 정책이 SSE-KMS와 환경 키를 요구하므로 server_side_encryption, sse_kms_key_id를 꼭 넣는다.
+cat >/opt/santacut/backup.env <<'BACKUPENV'
+export AWS_SHARED_CREDENTIALS_FILE=/opt/santacut/aws/credentials
+BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_bucket=true,server_side_encryption='aws:kms',sse_kms_key_id='${kms_key_arn}',upload_cutoff=5G:${backup_bucket}/backups/sqlite"
+BACKUPENV
+chown ubuntu:ubuntu /opt/santacut/backup.env
+chmod 0600 /opt/santacut/backup.env
+
+# 백업 스크립트 본체는 릴리스에 들어 있다. 이 진입점은 늘 현재 릴리스의 backup.sh를 부르므로 배포마다 복사할 필요가 없다.
+# 릴리스 안 파일에는 실행 권한이 없어 bash로 넘긴다. 첫 배포 전에는 할 일이 없으니 건너뛴다.
+cat >/opt/santacut/backup.sh <<'BACKUPSH'
+#!/bin/bash
+script=/opt/santacut/current/scripts/backup.sh
+[[ -f "$script" ]] || { echo "backup: 배포된 릴리스가 아직 없어 건너뛴다"; exit 0; }
+exec bash "$script" "$@"
+BACKUPSH
+chown ubuntu:ubuntu /opt/santacut/backup.sh
+chmod 0750 /opt/santacut/backup.sh
+
+# 매시 정각에 백업한다. 다시 실행해도 줄이 겹치지 않는다.
+cron_line='0 * * * * /opt/santacut/backup.sh >> /opt/santacut/backups/backup.log 2>&1'
+{ crontab -u ubuntu -l 2>/dev/null | grep -vF '/opt/santacut/backup.sh' || true; echo "$cron_line"; } | crontab -u ubuntu -
 
 # 20GB 디스크(nano_3_0)에 SQLite와 스왑이 같이 있으므로 배포 산출물을 주마다 정리한다.
 # 롤백용으로 최근 7일 이미지와 최근 릴리스 3개는 남긴다.
