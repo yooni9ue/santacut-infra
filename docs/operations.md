@@ -240,7 +240,6 @@ AWS_REGION=ap-northeast-2
 # 반드시 global.로 시작하는 프로파일 ID. 기반 모델 ID로 호출하면 IAM 조건에 걸려 거부된다.
 # 비스트리밍 호출(bedrock-runtime Converse, InvokeModel)만 허용된다.
 BEDROCK_MODEL_ID=global.anthropic.claude-haiku-4-5-20251001-v1:0
-SANTACUT_AI_DAILY_CALL_LIMIT=100
 # dev에만 둔다. 프롬프트 관리 API(/v1/admin/prompts)를 켠다. main에서는 이 줄을 빼 404로 둔다.
 PROMPT_ADMIN_ENABLED=true
 ```
@@ -323,7 +322,7 @@ BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_buc
 ## 7. 앱 배포 연동 (앱 레포에서 할 일)
 
 - 앱 레포 GitHub Environment 이름을 `dev`, `main`으로 맞추고, 각각 배포 브랜치를 `main`으로 제한한다. 변수 `AWS_DEPLOY_ROLE_ARN`에 `app_deploy_role_arns.<env>`를 넣는다.
-- 완료(2026-11-16): 앱 Compose에서 Ollama 설정을 뺐다. 앱은 Spring AI Bedrock Converse(비스트리밍)로 부르고, 요청마다 최대 출력 토큰(500)을 정하고, 호출 전에 일일 호출 한도(`SANTACUT_AI_DAILY_CALL_LIMIT`)를 확인한다. AWS 키는 `app.env`의 환경 변수로 받는다(기본 자격 증명 체인).
+- 완료(2026-11-16): 앱 Compose에서 Ollama 설정을 뺐다. 앱은 Spring AI Bedrock Converse(비스트리밍)로 부르고, 요청마다 최대 출력 토큰(500)을 정한다. 앱에는 AI 호출 수 한도가 없다(2026-11-16에 뺐다). AI 비용은 10절의 Bedrock 예산 차단으로만 막는다. AWS 키는 `app.env`의 환경 변수로 받는다(기본 자격 증명 체인).
 - 완료: 릴리스 묶음(tar)에 `scripts/deploy.sh`와 `scripts/backup.sh`가 함께 들어간다.
 - 완료: `backup.sh`에서 age 암호화를 뺐다. SQLite `.backup` 결과를 `$BACKUP_REMOTE`(`backups/sqlite`)에 올리면 S3가 KMS로 암호화한다. 올린 뒤 내려받아 대조하고, 로컬 복사본은 2일만 둔다. `BACKUP_AGE_RECIPIENT`는 없다.
 - 완료: Compose와 `deploy.sh`, `backup.sh`는 앱 설정을 `/run/santacut/app.env`에서 읽는다(6절 3).
@@ -488,7 +487,7 @@ done
    ```
 
 2. 그 이름으로 bootstrap 변수 `bedrock_cost_service_names`를 맞추고 다시 적용한다. 다음 날 `aws budgets describe-budget --account-id <계정> --budget-name santacut-bedrock --query Budget.CalculatedSpend.ActualSpend`가 0이 아닌지 확인한다.
-3. 2단계 확인이 끝난 뒤에만 `enable_bedrock_stop = true`로 다시 적용한다. dev만 쓰는 동안은 main 앱 사용자가 없으므로 `bedrock_stop_environments = ["dev"]`도 함께 넣는다. 실제 비용이 100%를 넘으면 `bedrock_stop_environments`의 앱 사용자에게 `santacut-deny-bedrock` 정책이 자동으로 붙는다. 청구 데이터가 하루 늦게 반영되므로 1차 방어는 앱의 일일 토큰 한도다.
+3. 2단계 확인이 끝난 뒤에만 `enable_bedrock_stop = true`로 다시 적용한다. dev만 쓰는 동안은 main 앱 사용자가 없으므로 `bedrock_stop_environments = ["dev"]`도 함께 넣는다. 실제 비용이 100%를 넘으면 `bedrock_stop_environments`의 앱 사용자에게 `santacut-deny-bedrock` 정책이 자동으로 붙는다. 청구 데이터가 하루 늦게 반영되므로 차단도 하루쯤 늦을 수 있다. 앱에는 AI 호출 수 한도가 없다. 호출 한 번의 비용은 앱의 최대 출력 토큰(500)과 입력 제한(이벤트 2,000개, 200,000자)이, 호출 수는 참가자별 24시간 3회 제출 한도가 묶는다.
 4. 해제: 원인을 확인하고 예산을 올리거나 다음 달을 기다린 뒤 정책을 뗀다.
 
    ```sh
