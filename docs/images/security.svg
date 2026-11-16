@@ -74,7 +74,7 @@
     <rect class="card" width="680" height="64" rx="14"/>
     <circle cx="32" cy="32" r="15" fill="#7FC4F0"/><text class="ln" x="32" y="38" text-anchor="middle">3</text>
     <text class="h" x="62" y="28">환경별 권한 경계</text>
-    <text class="s" x="62" y="50">앱 사용자 상한: Bedrock 호출 + 자기 백업 버킷</text>
+    <text class="s" x="62" y="50">앱 사용자 상한: Bedrock 호출 + 자기 백업 버킷·KMS 키</text>
   </g>
   <g transform="translate(480,342)">
     <rect class="card" width="680" height="64" rx="14"/>
@@ -92,7 +92,7 @@
     <rect class="card" width="680" height="64" rx="14"/>
     <circle cx="32" cy="32" r="15" fill="#3DDC97"/><text class="ln" x="32" y="38" text-anchor="middle">6</text>
     <text class="h" x="62" y="28">비밀값은 코드·상태 밖</text>
-    <text class="s" x="62" y="50">앱 액세스 키는 사람이 발급해 인스턴스에만 둔다</text>
+    <text class="s" x="62" y="50">앱 설정은 KMS로 암호화해 S3에, 액세스 키는 인스턴스에만</text>
   </g>
   <!-- 방패 -->
   <g transform="translate(1146,96) scale(0.6)">

@@ -61,8 +61,8 @@
       <rect class="card" x="472" y="112" width="124" height="86" rx="14"/>
       <path d="M492,130 h20 l-3,22 h-14 z" fill="#3DDC97"/>
       <text class="h" x="520" y="146">S3 백업</text>
-      <text class="xs" x="534" y="172" text-anchor="middle">age 암호화</text>
-      <text class="xs" x="534" y="190" text-anchor="middle">최대 37일 보관</text>
+      <text class="xs" x="534" y="172" text-anchor="middle">SSE-KMS 암호화</text>
+      <text class="xs" x="534" y="190" text-anchor="middle">최대 21일 보관</text>
     </g>
   </defs>
 

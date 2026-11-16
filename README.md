@@ -27,8 +27,9 @@
 | **1** | 환경마다 인스턴스 한 대(512MB, 월 5달러) |
 | **5** | GitHub OIDC 역할. plan, apply×2, 앱 배포×2 |
 | **0** | 장기 액세스 키를 쓰는 CI 잡 |
-| **약 6** | 월 고정비(USD, dev 한 환경) |
-| **37일** | S3 백업 최대 보관 |
+| **약 8** | 월 고정비(USD, dev 한 환경 + KMS 키 2개) |
+| **21일** | S3 백업 최대 보관 |
+| **12/31** | 프로젝트 종료일. 이후 철거한다 |
 
 | 선택 | 이유 |
 | --- | --- |
@@ -46,7 +47,8 @@
 - 도메인을 사기 전에는 고정 IP에 HTTP로 접속한다. Route 53은 쓰지 않는다.
 - SQLite는 인스턴스 디스크에 있다.
 - 디스크는 매일 03:00(KST) 자동 스냅숏을 뜬다.
-- DB는 age로 암호화해 S3에 따로 올린다.
+- DB 백업은 S3에 따로 올린다. 버킷이 환경별 KMS 키로 암호화한다(SSE-KMS).
+- 앱 설정(`.env`)도 KMS로 암호화해 S3에 두고, 부팅 때 tmpfs로 받는다.
 - AI 점수는 Bedrock Claude Haiku 5.5가 낸다.
 
 ## 배포 파이프라인
@@ -90,6 +92,9 @@ flowchart LR
 - 역할은 OIDC `sub` 조건으로만 맡는다.
 - apply 역할은 자기 상태 키만 쓴다.
 - 앱 사용자는 권한 경계를 넘지 못한다.
+- 앱 사용자는 자기 환경 KMS 키를 S3를 거쳐서만 쓴다. 설정(`config/`)은 읽기만 한다.
+- 비밀값은 레포, 워크플로, Terraform 상태에 없다. 인스턴스 디스크의 평문 비밀값은 앱 액세스 키 하나다.
+- `SSH_ALLOWED_CIDRS`는 22번만 제한한다. 80/443은 모두에게 열려 있다.
 - IAM으로 못 막는 위험은 [운영 문서 4절](docs/operations.md#iam으로-막지-못하는-위험)에 있다.
 
 ## 비용
@@ -104,11 +109,12 @@ flowchart LR
 | 자동 스냅숏 | 약 0.5 | GB당 0.05, 증분(추정) |
 | Route 53 호스팅 영역 | 0 | 도메인을 산 뒤 0.5 |
 | S3(상태·백업) | 1 미만 | 수 GB 이하 |
+| KMS 키 × 2 | 약 2 | 키당 월 1. 키가 있는 동안 과금, 삭제 후 7일 대기. 요청 요금은 버킷 키로 줄인다 |
 | GitHub Actions | 0 | 공개 레포 표준 러너 |
-| **고정비 합계** | **약 6** | |
+| **고정비 합계** | **약 8** | |
 | Bedrock Claude Haiku 5.5 | 상한 약 1.7 | 추정, 아래 참고 |
 
-나중에 도메인을 사고 `main`까지 켜면 고정비는 약 12~13달러다(인스턴스 5 × 2, 스냅숏 약 1, Route 53 0.5, S3 1 미만).
+나중에 도메인을 사고 `main`까지 켜면 고정비는 약 14~15달러다(인스턴스 5 × 2, KMS 2, 스냅숏 약 1, Route 53 0.5, S3 1 미만). KMS 키는 bootstrap이 두 환경 몫을 미리 만든다.
 
 <details>
 <summary>Bedrock 상한 계산</summary>
@@ -127,16 +133,18 @@ flowchart LR
 - 사양을 올리려면 `bundle_id`를 바꾼다. 인스턴스 교체 절차를 따른다([운영 문서 9절](docs/operations.md#인스턴스-교체-사양-올리기-장애-복구)).
 - Lightsail은 멈춰도 요금이 나간다.
 - dev가 필요 없으면 내린다([운영 문서 11절](docs/operations.md#11-dev-내리기)).
+- 프로젝트는 2026-12-31에 끝난다. 모든 리소스에 `ExpiresOn` 태그가 있다. 철거는 [운영 문서 13절](docs/operations.md#13-프로젝트-종료1231-철거-절차)을 따른다.
 
 ## 디렉터리 구조
 
 ```text
 santacut-infra/
-├─ bootstrap/              # 계정에 한 번: 상태 버킷, OIDC 역할, Route 53, 예산
+├─ bootstrap/              # 계정에 한 번: 상태 버킷, OIDC 역할, KMS 키, Route 53, 예산
 ├─ modules/santacut_app/   # 환경 하나: 인스턴스, 고정 IP, 방화벽, 백업 버킷, 앱 IAM
 ├─ envs/
 │  ├─ dev/                 # dev 루트 모듈
 │  └─ main/                # 운영 루트 모듈
+├─ scripts/put-secrets.sh  # 앱 설정을 KMS로 암호화해 S3에 올린다
 ├─ .github/workflows/      # terraform.yml, health.yml
 └─ docs/operations.md      # 설정·운영·복구 절차
 ```
@@ -145,7 +153,7 @@ santacut-infra/
 
 처음 설정은 [`docs/operations.md`](docs/operations.md) 1~7단계를 따른다.
 
-1. bootstrap을 적용한다. 도메인이 없으면 비워 둔다.
+1. bootstrap을 적용한다(KMS 키 포함). 도메인이 없으면 비워 둔다. 환경보다 먼저 적용해야 한다.
 2. 도메인을 샀다면 가비아 네임서버를 위임한다.
 3. Bedrock 모델을 활성화한다.
 4. GitHub 변수와 Environment를 설정한다.

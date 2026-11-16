@@ -7,7 +7,7 @@
 | 항목 | 결정 |
 | --- | --- |
 | 실행 | 환경마다 AWS Lightsail 인스턴스 한 대. 앱 레포의 Docker Compose(Caddy + Spring)와 `deploy.sh`를 그대로 쓴다 |
-| DB | SQLite 유지. 인스턴스 디스크에 두고 Lightsail 자동 스냅숏과 S3 암호화 백업으로 지킨다 |
+| DB | SQLite 유지. 인스턴스 디스크에 두고 Lightsail 자동 스냅숏과 S3 백업(SSE-KMS)으로 지킨다 |
 | AI | Amazon Bedrock Claude Haiku 5.5(Global 교차 리전 추론). 서버에서 모델을 돌리지 않는다 |
 | 분석 진행 | 폴링(GET 2~3초 간격). SSE를 쓰지 않는다 |
 | 계정 | dev와 main은 같은 AWS 계정에서 이름 접두사(`santacut-dev-`, `santacut-main-`)와 IAM 범위로 나눈다 |
@@ -16,13 +16,14 @@
 ## 원칙
 
 - 인스턴스는 환경마다 한 대만 둔다. 로드 밸런서, NAT 게이트웨이, 관리형 DB처럼 월 고정비가 드는 리소스를 더하려면 이유와 월 비용을 PR에 적는다.
-- 비밀값(액세스 키, `.env` 값)은 Terraform 코드와 상태에 넣지 않는다. 액세스 키는 사람이 발급해 인스턴스의 `/opt/santacut/.env`에 넣는다(`docs/operations.md`).
+- 비밀값(액세스 키, `.env` 값)은 Terraform 코드와 상태, 레포, 워크플로에 넣지 않는다. 액세스 키는 사람이 발급해 인스턴스의 `/opt/santacut/aws/credentials`에 바로 쓴다. 앱 설정은 KMS로 암호화해 S3 `config/app.env`에 두고 부팅 때 tmpfs로 받는다(`docs/operations.md` 6절).
+- 프로젝트는 2026-12-31에 끝난다. 새 리소스는 짧은 수명과 깨끗한 철거(`docs/operations.md` 13절)를 기준으로 고른다.
 - Lightsail 인스턴스는 IAM 역할을 쓸 수 없다. 앱 권한은 환경별 IAM 사용자에게 Bedrock 호출과 백업 버킷 접근만 준다.
 - 사람이 읽는 텍스트(주석, 설명, 문서, 커밋 메시지)는 한국어로 쓴다. 리소스 이름, 변수명, 태그 키는 영어다.
 
 ## 구조와 브랜치 전략
 
-- `bootstrap/`: 계정에 한 번만 만드는 공용 리소스(상태 버킷, GitHub OIDC 역할, Route 53 호스팅 영역, 예산 알림). 처음에는 로컬 상태로 적용하고, 그 뒤 S3 상태(`bootstrap/backend.tf`)로 옮긴다.
+- `bootstrap/`: 계정에 한 번만 만드는 공용 리소스(상태 버킷, GitHub OIDC 역할, 환경별 KMS 키, Route 53 호스팅 영역, 예산 알림). 처음에는 로컬 상태로 적용하고, 그 뒤 S3 상태(`bootstrap/backend.tf`)로 옮긴다.
 - `envs/dev`, `envs/main`: 두 환경을 디렉터리로 나란히 둔다. 각 디렉터리가 하나의 루트 모듈이고 원격 상태 키가 따로 있다. 운영 환경 이름은 `main`이다.
 - `modules/santacut_app/`: 두 환경이 같이 쓰는 모듈. 환경 디렉터리는 모듈을 조립하고 환경별 값만 가진다.
 - 브랜치는 `main` 하나만 쓴다(트렁크 기반). PR에서 두 환경 모두 `plan`하고, `main` 병합 후 `dev`에 먼저 적용한 다음 `main` 환경은 GitHub Environment 승인 후 적용한다. 환경별 브랜치를 만들지 않는다.

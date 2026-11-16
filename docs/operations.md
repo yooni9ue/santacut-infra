@@ -30,7 +30,16 @@ terraform apply
 
 apply 역할은 `envs/<env>/*` 키에만 쓸 수 있어서 CI가 bootstrap 상태를 바꾸지 못한다. 이후 권한, 예산, OIDC 설정을 바꿀 때는 관리자가 로컬에서 `terraform init -backend-config="bucket=..."` 후 다시 적용한다.
 
-출력값은 다음 단계에서 쓴다: `state_bucket`, `name_servers`, `plan_role_arn`, `apply_role_arns`, `app_deploy_role_arns`. 도메인이 없으면 `zone_id`와 `name_servers`는 `null`이다.
+출력값은 다음 단계에서 쓴다: `state_bucket`, `name_servers`, `plan_role_arn`, `apply_role_arns`, `app_deploy_role_arns`, `kms_key_arns`. 도메인이 없으면 `zone_id`와 `name_servers`는 `null`이다.
+
+### KMS 키
+
+bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-main`)를 만든다(`bootstrap/kms.tf`).
+
+- 백업 버킷 기본 암호화(SSE-KMS)와 앱 설정 파일(`config/app.env`)을 이 키로 암호화한다.
+- `envs/<env>`는 별칭으로 키를 찾는다. 키가 없으면 plan이 실패하므로 **bootstrap을 먼저 로컬에서 적용한 뒤** CI가 dev를 적용하게 한다.
+- 키 자동 교체를 켰다. 삭제 대기 기간은 최소인 7일이다.
+- 앱 사용자는 S3를 거친 `kms:Decrypt`, `kms:GenerateDataKey`만 자기 환경 키에 쓸 수 있다. Terraform 역할에는 복호화 권한이 없다.
 
 ## 2. 도메인과 가비아 네임서버 위임
 
@@ -51,7 +60,7 @@ apply 역할은 `envs/<env>/*` 키에만 쓸 수 있어서 CI가 bootstrap 상�
 2. 가비아 도메인 관리 → 네임서버 설정에서 `name_servers` 출력값 4개를 등록한다. 반영까지 최대 하루가 걸릴 수 있다. `dig NS <도메인>`으로 확인한다.
 3. 레포 변수 `DOMAIN_NAME`에 같은 도메인을 넣는다.
 4. `workflow_dispatch`로 terraform 워크플로를 돌리거나 PR을 병합한다. dev의 A 레코드(`dev.<도메인>`)가 생긴다.
-5. 인스턴스 `.env`의 `DOMAIN`, `ACME_EMAIL`을 채우고 Caddyfile을 도메인 주소로 되돌린 뒤 앱을 다시 띄운다(6단계).
+5. 로컬 앱 설정 파일의 `DOMAIN`, `ACME_EMAIL`을 채워 `scripts/put-secrets.sh`로 다시 올리고, Caddyfile을 도메인 주소로 되돌린 뒤 앱을 다시 띄운다(6단계).
 
 ## 3. Bedrock 모델 활성화
 
@@ -109,7 +118,7 @@ Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개�
 | `AWS_PLAN_ROLE_ARN` | bootstrap `plan_role_arn` |
 | `DOMAIN_NAME` | 서비스 도메인. 도메인을 사기 전에는 비워 둔다 |
 | `SSH_PUBLIC_KEY` | 배포용 SSH 공개 키 |
-| `SSH_ALLOWED_CIDRS` | HCL 목록 형식, /24 이상, 예: `["203.0.113.10/32"]` |
+| `SSH_ALLOWED_CIDRS` | HCL 목록 형식, /24 이상, 예: `["203.0.113.10/32"]`. SSH(22)만 제한한다. 80/443은 모두에게 열려 있어 프런트엔드 접속에는 영향이 없다 |
 | `BEDROCK_MODEL_ID` | 3단계의 기반 모델 ID(`anthropic.`으로 시작) |
 | `DEV_ENABLED` | 평소에는 비워 둔다. dev를 내렸을 때만 `false` |
 | `MAIN_ENABLED` | 운영을 켤 때만 `true`. 비우면 dev만 plan·적용한다(12절) |
@@ -162,7 +171,8 @@ terraform apply
 cloud-init status --wait                 # status: done
 tail -n 5 /var/log/santacut-init.log     # 마지막 줄: santacut-init: OK
 docker compose version
-ls -ld /opt/santacut/releases /opt/santacut/backups
+ls -ld /opt/santacut/releases /opt/santacut/backups /opt/santacut/aws   # aws는 700
+systemctl is-enabled santacut-secrets    # enabled. 자격 증명을 넣기 전에는 조건 미충족으로 건너뛴다
 swapon --show                            # /swapfile 1G
 free -m
 ```
@@ -175,38 +185,88 @@ aws lightsail get-instance-port-states --instance-name santacut-dev-app
 
 ## 6. 인스턴스 비밀값 설정
 
-### 앱 IAM 사용자 액세스 키
+인스턴스 디스크에 평문으로 두는 비밀값은 앱 IAM 사용자 액세스 키 하나다(`/opt/santacut/aws/credentials`, 600, ubuntu). Lightsail에는 인스턴스 역할이 없어서 이 키가 유일한 시작 비밀값이다.
 
-액세스 키는 Terraform 상태에 남지 않도록 사람이 발급한다.
+앱 설정(`.env`)은 환경별 KMS 키로 암호화해 S3에 두고, 부팅 때 tmpfs로 받는다. 레포, 워크플로, Terraform 코드와 상태 어디에도 비밀값이 없다.
 
-```sh
-aws iam create-access-key --user-name santacut-dev-app
+한계도 있다. Compose `env_file` 값은 컨테이너 메타데이터(`docker inspect`, `/var/lib/docker`)에 남고 일일 스냅숏에도 들어간다. 디스크의 액세스 키로 `config/app.env`를 다시 받을 수도 있다. 이 방식의 이점은 비밀값을 한곳에서 바꾸고 KMS 사용 기록(CloudTrail)을 남기는 데 있다.
+
+```text
+운영자 PC --put-secrets.sh(SSE-KMS)--> s3://santacut-<env>-backup-<계정>/config/app.env
+부팅 --> santacut-secrets.service --> /opt/santacut/bin/fetch-secrets.sh
+     --> /run/santacut/app.env (tmpfs, 600, ubuntu) --> docker compose env_file
 ```
 
-발급한 키로 Bedrock 호출 권한을 확인한다. 프로파일 ID로는 성공하고 기반 모델 ID로는 거부되어야 한다.
+- `fetch-secrets.sh`는 받은 설정 뒤에 자격 증명 파일의 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`를 붙인다. 그래서 S3의 `app.env`에는 액세스 키를 넣지 않는다.
+- 앱 사용자는 `config/`를 읽기만 하고, `backups/`에만 쓴다.
+
+### 1) 액세스 키 발급과 인스턴스 기록
+
+키를 PC 파일이나 화면에 남기지 않도록, 발급 결과를 SSH로 인스턴스에 바로 쓴다. 관리자 자격 증명(`AWS_PROFILE=santacut`)으로 실행한다.
 
 ```sh
-export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
-aws bedrock-runtime converse --region ap-northeast-2 --model-id global.<기반 모델 ID> \
+env=dev
+ip=$(aws lightsail get-static-ip --static-ip-name santacut-$env-ip --query staticIp.ipAddress --output text)
+aws iam create-access-key --user-name santacut-$env-app \
+  --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text |
+  ssh ubuntu@$ip 'umask 077; read -r id secret
+    printf "[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n" "$id" "$secret" > /opt/santacut/aws/credentials'
+ssh ubuntu@$ip 'stat -c "%a %U" /opt/santacut/aws/credentials'   # 600 ubuntu
+```
+
+키 권한을 인스턴스에서 확인한다. 프로파일 ID로는 성공하고 기반 모델 ID로는 거부되어야 한다. 인스턴스에는 AWS CLI가 없어 공식 CLI 이미지를 잠시 쓴다.
+
+```sh
+cli="docker run --rm -v /opt/santacut/aws:/root/.aws:ro public.ecr.aws/aws-cli/aws-cli --region ap-northeast-2"
+$cli bedrock-runtime converse --model-id global.<기반 모델 ID> \
   --messages '[{"role":"user","content":[{"text":"ping"}]}]'          # 성공
-aws bedrock-runtime converse --region ap-northeast-2 --model-id <기반 모델 ID> \
+$cli bedrock-runtime converse --model-id <기반 모델 ID> \
   --messages '[{"role":"user","content":[{"text":"ping"}]}]'          # AccessDeniedException
+docker image rm public.ecr.aws/aws-cli/aws-cli
 ```
 
-### `/opt/santacut/.env` (권한 600, 소유자 ubuntu)
+### 2) 앱 설정을 암호화해 올리기 (운영자 PC)
 
-앱 레포 `backend/ci-cd/deploy/.env.example`의 필수 키(`DOMAIN`, `ACME_EMAIL`, `APP_SEASON_YEAR` 등)를 채우고, Bedrock 설정을 더한다. 변수 이름은 앱 레포 설정과 맞춘다.
+앱 레포 `backend/ci-cd/deploy/.env.example`의 필수 키(`DOMAIN`, `ACME_EMAIL`, `APP_SEASON_YEAR` 등)를 채우고, Bedrock 설정을 더한다. 변수 이름은 앱 레포 설정과 맞춘다. **`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`는 넣지 않는다.**
 
 ```sh
 DOMAIN=dev.santacut.kr
 ACME_EMAIL=operator@example.com
 AWS_REGION=ap-northeast-2
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
 # 반드시 global.로 시작하는 프로파일 ID. 기반 모델 ID로 호출하면 IAM 조건에 걸려 거부된다.
 # 비스트리밍 호출(bedrock-runtime Converse, InvokeModel)만 허용된다.
 BEDROCK_MODEL_ID=global.anthropic.claude-haiku-5-5-...
 ```
+
+이 파일을 권한 600으로 만들고 올린다. 스크립트는 WSL, Linux, macOS에서 돌린다. Git Bash는 파일 권한을 표현하지 못해 항상 거부된다.
+
+```sh
+chmod 600 ~/santacut-dev.env
+AWS_PROFILE=santacut bash scripts/put-secrets.sh dev ~/santacut-dev.env
+```
+
+- 스크립트는 `aws s3 cp --sse aws:kms --sse-kms-key-id <키 ARN>`으로 올린다. 별칭(`alias/santacut-<env>`)을 키 ARN으로 바꿔 넘긴다. 버킷 정책이 이 환경 키 ARN을 요구하기 때문이다.
+- 값은 출력하지 않고 암호화 메타데이터(`aws:kms`, 키 ARN)만 보여 준다.
+- 올린 뒤 로컬 파일은 비밀번호 관리자로 옮기고 지운다.
+
+### 3) 인스턴스에서 받기
+
+재부팅하면 `santacut-secrets.service`가 Docker보다 먼저 받는다. 지금 바로 받으려면 서비스를 다시 시작한다.
+
+```sh
+sudo systemctl restart santacut-secrets
+systemctl status santacut-secrets --no-pager     # fetch-secrets: OK
+stat -c '%a %U' /run/santacut/app.env             # 600 ubuntu
+findmnt -no FSTYPE -T /run/santacut               # tmpfs
+```
+
+Compose는 이 파일을 읽어야 한다. 앱 레포 `deploy/compose.yml`의 앱 서비스에 `env_file: /run/santacut/app.env`를 두고, 보간용 `--env-file`도 같은 경로를 쓴다. 앱 레포 `deploy.sh`가 아직 `/opt/santacut/.env`를 쓰면 심볼릭 링크로 잇는다.
+
+```sh
+ln -sfn /run/santacut/app.env /opt/santacut/.env
+```
+
+Compose는 `env_file`을 `up`할 때만 읽는다. 설정을 바꿨으면 `docker compose --env-file /run/santacut/app.env -f /opt/santacut/current/deploy/compose.yml up -d --force-recreate`로 컨테이너를 다시 만든다.
 
 ### 512MB 번들의 메모리
 
@@ -218,28 +278,52 @@ BEDROCK_MODEL_ID=global.anthropic.claude-haiku-5-5-...
 
 ### `/opt/santacut/backup.env` (권한 600, 소유자 ubuntu)
 
-`backup.sh`는 이 파일을 `source`하고 rclone을 직접 실행한다. 자식 프로세스인 rclone이 키를 받도록 `export`를 붙인다. 앱 사용자에게는 버킷 생성 권한이 없으므로 `no_check_bucket=true`가 필요하다.
+`backup.sh`는 이 파일을 `source`하고 rclone을 직접 실행한다. 이제 이 파일에는 비밀값이 없다. rclone은 `AWS_SHARED_CREDENTIALS_FILE`이 가리키는 자격 증명 파일을 읽는다.
+
+- 앱 사용자에게는 버킷 생성 권한이 없으므로 `no_check_bucket=true`가 필요하다.
+- 버킷 정책이 SSE-KMS와 이 환경 키 ARN을 요구한다. 그래서 `server_side_encryption`, `sse_kms_key_id`가 필요하다. 키 ARN은 환경 출력값 `kms_key_arn`이다. 값에 콜론이 있어 작은따옴표로 감싼다.
+- `upload_cutoff=5G`로 멀티파트 업로드를 피한다. 멀티파트의 파트 업로드 요청이 버킷 정책의 암호화 헤더 조건에 걸리는지는 미확인이다. SQLite 백업은 작아서 한 번에 올라간다.
 
 ```sh
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
-BACKUP_AGE_RECIPIENT=age1...
-BACKUP_REMOTE=:s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_bucket=true:<backup_bucket>/sqlite
+export AWS_SHARED_CREDENTIALS_FILE=/opt/santacut/aws/credentials
+BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_bucket=true,server_side_encryption='aws:kms',sse_kms_key_id='<kms_key_arn>',upload_cutoff=5G:<backup_bucket>/backups/sqlite"
 ```
-
-### age 개인키
-
-S3 백업은 age 공개키로 암호화된다. **개인키는 인스턴스에 두지 않고** bootstrap 관리자 자격 증명과 같은 수준으로 비밀번호 관리자에 보관한다. 개인키를 잃으면 S3 백업 전체를 복원할 수 없다.
 
 ### 키 교체
 
-90일마다 새 키를 발급해 `.env`와 `backup.env` 두 곳을 바꾸고, 앱을 다시 띄운 뒤 예전 키를 `aws iam delete-access-key`로 지운다.
+액세스 키는 자격 증명 파일 한 곳에만 있다. 프로젝트가 12/31에 끝나므로 정기 교체는 하지 않고, 유출이 의심될 때만 바꾼다.
+
+1. 1)의 명령으로 새 키를 발급해 자격 증명 파일을 덮어쓴다.
+2. `sudo systemctl restart santacut-secrets` 후 위의 `up -d --force-recreate`로 앱을 다시 만든다.
+3. 백업 한 번(`/opt/santacut/backup.sh`)과 앱의 Bedrock 호출이 되는지 확인한다.
+4. 예전 키를 지운다: `aws iam delete-access-key --user-name santacut-<env>-app --access-key-id <예전 키 ID>`.
+
+### 이미 있는 인스턴스에 적용하기 (한 번)
+
+인스턴스에는 `ignore_changes = [user_data]`가 걸려 있다. 첫 부팅 스크립트를 고쳐도 **지금 돌고 있는 인스턴스에는 반영되지 않는다.** 2026-11 KMS 전환 전에 만든 인스턴스(dev)는 아래를 한 번 한다.
+
+1. 첫 부팅 스크립트를 렌더링해 다시 실행한다. 스크립트는 여러 번 실행해도 결과가 같다. 다만 `apt-get install`이 Docker를 새 버전으로 올리며 다시 시작할 수 있으니 트래픽이 적을 때 한다.
+
+   ```sh
+   env=dev; acct=466417120611
+   sed -e 's/\$\${/${/g' -e "s/\${backup_bucket}/santacut-$env-backup-$acct/" \
+     modules/santacut_app/cloud-init.sh > /tmp/santacut-init.sh
+   scp /tmp/santacut-init.sh ubuntu@$ip:/tmp/
+   ssh ubuntu@$ip 'sudo bash /tmp/santacut-init.sh; tail -n 1 /var/log/santacut-init.log; rm /tmp/santacut-init.sh'
+   ```
+
+2. 위 1)~3)을 한다. 새 키를 발급했다면, 예전 키는 평문 `.env`에 있었으니 지운다.
+3. 예전 평문 파일을 없앤다: `shred -u /opt/santacut/.env` 후 `ln -s /run/santacut/app.env /opt/santacut/.env`. `backup.env`는 위 형식으로 다시 쓴다(액세스 키 줄 삭제).
+4. age는 더 이상 쓰지 않는다: `sudo apt-get remove -y age`. 비밀번호 관리자의 age 개인키는 예전 `sqlite/` 백업이 남아 있는 동안만 보관한다.
+5. 예전 `sqlite/` 접두사의 age 백업은 새 수명 주기 규칙(`backups/`)에 걸리지 않는다. 새 백업이 `backups/`에 쌓이는 것을 확인한 뒤 지운다.
 
 ## 7. 앱 배포 연동 (앱 레포에서 할 일)
 
 - 앱 레포 GitHub Environment 이름을 `dev`, `main`으로 맞추고, 각각 배포 브랜치를 `main`으로 제한한다. 변수 `AWS_DEPLOY_ROLE_ARN`에 `app_deploy_role_arns.<env>`를 넣는다.
 - 앱의 Compose에서 Ollama 설정을 빼고 Bedrock 설정과 AWS 키를 넘긴다. 앱은 bedrock-runtime Converse(비스트리밍)로 호출하고, 요청마다 최대 출력 토큰을 정하고, 호출 전에 일일 토큰 한도를 확인한다.
 - 릴리스 묶음(tar)에 `scripts/deploy.sh`와 함께 **`scripts/backup.sh`를 넣는다.** 지금 앱 레포 워크플로는 `deploy.sh`만 넣는다.
+- `backup.sh`에서 age 암호화를 뺀다. SQLite `.backup` 결과를 그대로 `$BACKUP_REMOTE`(`backups/sqlite`)에 올리면 S3가 KMS로 암호화한다. `BACKUP_AGE_RECIPIENT`는 더 이상 없다.
+- Compose와 `deploy.sh`는 앱 설정을 `/run/santacut/app.env`에서 읽는다(6절 3).
 - 배포 대상 주소는 각 환경 출력값 `static_ip`다.
 
 ### 배포 중 임시 SSH
@@ -305,7 +389,7 @@ done
 ## 9. 백업과 복구
 
 - **자동 스냅숏**: 매일 UTC 18:00(한국 새벽 3시)에 인스턴스 디스크 전체를 남긴다. Lightsail은 최근 7개를 보관한다. **원본 인스턴스를 지우면 자동 스냅숏도 함께 지워진다.**
-- **S3 백업**: `backup.sh`가 SQLite를 `.backup`으로 떠서 age로 암호화해 올린다. 객체는 30일 뒤 이전 버전이 되고, 그로부터 7일 뒤 영구 삭제된다(최대 37일 보관).
+- **S3 백업**: `backup.sh`가 SQLite를 `.backup`으로 떠서 `backups/sqlite/`에 올린다. 버킷이 환경별 KMS 키로 암호화한다(SSE-KMS, 버킷 키 사용). 객체는 14일 뒤 이전 버전이 되고, 그로부터 7일 뒤 영구 삭제된다(최대 21일 보관). 수명 주기 규칙은 `backups/`에만 걸려 있어 `config/app.env`는 만료되지 않는다.
 
 ### S3 백업에서 SQLite 복원
 
@@ -316,21 +400,21 @@ done
    ```sh
    set -a; . /opt/santacut/backup.env; set +a
    rclone lsl "$BACKUP_REMOTE" | tail -5
-   rclone copyto "$BACKUP_REMOTE/santacut-<시각>.sqlite.age" /tmp/restore.sqlite.age
+   rclone copyto "$BACKUP_REMOTE/santacut-<시각>.sqlite" /tmp/restore.sqlite
    ```
 
-2. 복호화는 **인스턴스 밖**(age 개인키가 있는 PC)에서 한다: `age -d -i <개인키 파일> -o restore.sqlite restore.sqlite.age`
-3. 무결성을 확인한다: `sqlite3 restore.sqlite 'PRAGMA integrity_check;'` 결과가 `ok`.
-4. 인스턴스로 올리고 앱을 멈춘 뒤 볼륨의 DB를 바꾼다.
+2. 복호화는 S3가 한다. 앱 사용자에게 S3 경유 `kms:Decrypt`가 있어 따로 할 일이 없다. 2026-11 이전의 `sqlite/*.age` 백업만 PC에서 `age -d -i <개인키 파일>`로 푼다.
+3. 무결성을 확인한다: `sqlite3 /tmp/restore.sqlite 'PRAGMA integrity_check;'` 결과가 `ok`.
+4. 앱을 멈춘 뒤 볼륨의 DB를 바꾼다.
 
    ```sh
    cd /opt/santacut/current
-   docker compose --env-file /opt/santacut/.env -f deploy/compose.yml stop app
+   docker compose --env-file /run/santacut/app.env -f deploy/compose.yml stop app
    vol=$(docker volume inspect santacut_santacut_data --format '{{ .Mountpoint }}')
    sudo cp "$vol/santacut.db" "/opt/santacut/backups/before-restore-$(date -u +%Y%m%dT%H%M%SZ).db"
    sudo install -o 10001 -g 10001 -m 0600 /tmp/restore.sqlite "$vol/santacut.db"   # 앱 컨테이너 사용자(UID 10001)
    sudo rm -f "$vol/santacut.db-wal" "$vol/santacut.db-shm"
-   docker compose --env-file /opt/santacut/.env -f deploy/compose.yml start app
+   docker compose --env-file /run/santacut/app.env -f deploy/compose.yml start app
    ```
 
 5. 쓰기가 되는지 확인한다: 참가자 등록이나 분석 제출 같은 쓰기 요청 하나가 성공해야 한다.
@@ -345,7 +429,7 @@ done
    - **사양 올리기(인스턴스 정상)**: Caddy를 멈춰 요청을 끊고, 앱이 살아 있는 동안 마지막 백업을 올린 뒤(`backup.sh`는 실행 중인 앱 컨테이너 안에서 백업을 뜬다) 앱을 멈추고 지금 시점 수동 스냅숏을 뜬다.
 
      ```sh
-     compose="docker compose --env-file /opt/santacut/.env -f /opt/santacut/current/deploy/compose.yml"
+     compose="docker compose --env-file /run/santacut/app.env -f /opt/santacut/current/deploy/compose.yml"
      $compose stop caddy
      /opt/santacut/backup.sh
      $compose stop app
@@ -381,10 +465,10 @@ done
 6. `terraform import module.app.aws_lightsail_instance.app santacut-main-app`
 7. 번들을 바꿨다면 `envs/<env>/variables.tf`의 `bundle_id` **기본값을 PR로 바꿔 병합**한다. CI는 이 기본값을 쓰므로 로컬 `terraform.tfvars`만 바꾸면 다음 병합의 plan이 재생성을 계획하다 `prevent_destroy`에 걸린다. 월 고정비가 바뀌므로 README 비용 표와 bootstrap `monthly_budget_usd`도 함께 고친다.
 8. `terraform apply`(또는 병합 후 CI)로 고정 IP 연결, 방화벽, 자동 스냅숏을 다시 맞추고, 실행 요약의 plan이 인스턴스 교체를 계획하지 않는지 확인한다. 새 인스턴스의 기본 방화벽은 22/80 전체 개방이므로 이 단계를 빼먹지 않는다.
-9. 앱을 다시 띄운다. 스냅숏은 앱을 수동으로 멈춘 상태에서 떴기 때문에 `restart: unless-stopped` 정책으로는 자동으로 올라오지 않는다.
+9. `/run/santacut/app.env`는 tmpfs라 스냅숏에 없다. 부팅 때 `santacut-secrets`가 다시 받으니 `systemctl status santacut-secrets`로 확인한 뒤 앱을 다시 띄운다. 스냅숏은 앱을 수동으로 멈춘 상태에서 떴기 때문에 `restart: unless-stopped` 정책으로는 자동으로 올라오지 않는다.
 
    ```sh
-   docker compose --env-file /opt/santacut/.env -f /opt/santacut/current/deploy/compose.yml start app caddy
+   docker compose --env-file /run/santacut/app.env -f /opt/santacut/current/deploy/compose.yml start app caddy
    curl -fsS https://<도메인>/v3/api-docs -o /dev/null && echo OK
    ```
 
@@ -442,3 +526,45 @@ dev가 당분간 필요 없으면 아래 순서로 내린다. dev 데이터는 �
 6. 5~8단계의 첫 부팅 확인, 비밀값, 배포 연동, 알람을 main에도 한다.
 
 운영 도메인은 서비스 도메인 그 자체다. 도메인 없이 켜면 main도 고정 IP로 접속한다.
+
+## 13. 프로젝트 종료(12/31) 철거 절차
+
+프로젝트는 2026-12-31에 끝난다. 모든 리소스에 `ExpiresOn=2026-12-31` 태그가 있다(변수 `project_end_date`). 철거는 관리자 자격 증명으로 로컬에서 한다. CI가 다시 만들지 않게 먼저 멈춘다.
+
+1. **CI 멈추기**: 레포 변수 `DEV_ENABLED=false`를 넣고 `MAIN_ENABLED`는 비운다. `gh workflow disable health`, `gh workflow disable terraform`을 실행한다.
+2. **마지막 백업 받기(원할 때)**: 인스턴스에서 `/opt/santacut/backup.sh`를 한 번 돌리고 관리자 PC로 받는다. S3가 복호화해 주므로 받은 파일은 평문 SQLite다. 안전한 곳에 둔다.
+
+   ```sh
+   aws s3 cp s3://santacut-<env>-backup-466417120611/backups/sqlite/ ./final-backup/ --recursive
+   ```
+
+3. **Terraform 밖에서 만든 것 지우기**: 앱 사용자 액세스 키와 `santacut-deny-bedrock` 부착(11절 3), Lightsail 알람과 연락처(`aws lightsail delete-alarm`, `delete-contact-method`), 수동 스냅숏(`aws lightsail get-instance-snapshots` 후 `delete-instance-snapshot`). 자동 스냅숏은 인스턴스와 함께 지워진다.
+4. **`prevent_destroy` 풀기**: 아래 파일의 `prevent_destroy = true`를 로컬에서만 `false`로 바꾼다. **커밋하지 않는다.**
+   - `modules/santacut_app/main.tf` (Lightsail 인스턴스)
+   - `bootstrap/state.tf` (상태 버킷)
+   - `bootstrap/dns.tf` (Route 53 호스팅 영역, 도메인이 있을 때만)
+5. **버전 관리 버킷 비우기**: 모든 버전과 삭제 마커를 지워야 `destroy`가 된다. 콘솔의 버킷 비우기가 가장 쉽다. 아래 CLI는 한 번에 1000개까지만 지운다. 목록이 빌 때까지 반복한다. 빈 목록이면 `delete-objects`가 오류를 내며 끝난다.
+
+   ```sh
+   b=santacut-<env>-backup-466417120611
+   aws s3api list-object-versions --bucket $b \
+     --query '{Objects: [Versions, DeleteMarkers][][].{Key: Key, VersionId: VersionId} | [:1000], Quiet: `true`}' > /tmp/del.json
+   aws s3api delete-objects --bucket $b --delete file:///tmp/del.json
+   ```
+
+6. **`terraform destroy` 순서는 main → dev → bootstrap이다.** 환경 버킷이 bootstrap의 KMS 키와 상태 버킷에 기대므로 bootstrap은 마지막이다.
+
+   ```sh
+   bucket=santacut-tfstate-466417120611
+   terraform -chdir=envs/main init -backend-config="bucket=$bucket" && terraform -chdir=envs/main destroy   # main을 켠 적이 있을 때만
+   terraform -chdir=envs/dev init -backend-config="bucket=$bucket" && terraform -chdir=envs/dev destroy
+   ```
+
+7. **bootstrap 철거**: bootstrap 상태가 지울 상태 버킷 안에 있어 먼저 로컬로 옮긴다.
+   1. `bootstrap/backend.tf`를 다른 이름으로 옮기고 `terraform -chdir=bootstrap init -migrate-state`로 상태를 로컬로 가져온다.
+   2. 5번 명령으로 상태 버킷(`santacut-tfstate-466417120611`)을 비운다.
+   3. `terraform -chdir=bootstrap destroy`를 실행한다.
+8. **KMS 키 삭제 대기**: `destroy`는 키를 바로 지우지 않고 7일 동안 삭제 대기로 둔다. 대기 중에도 소액이 청구될 수 있다(미확인, 두 키 7일분이면 1달러 미만). 그동안은 `aws kms cancel-key-deletion`으로 되살릴 수 있다. `aws kms describe-key --key-id <키 ID> --query KeyMetadata.KeyState`가 `PendingDeletion`이면 된다.
+9. **남은 것 확인**: Lightsail 콘솔에 인스턴스, 고정 IP, 스냅숏이 없는지 본다. 고정 IP는 인스턴스에 붙어 있지 않으면 요금이 나간다.
+10. **IAM Identity Center 사용자(원할 때)**: 운영자 SSO 사용자와 권한 세트 할당을 콘솔에서 지운다. 지우면 이 계정에 SSO로 로그인할 수 없으니 맨 마지막에 한다. 루트 계정은 남긴다.
+11. **1월에 비용 확인**: 12월 사용분은 1월 초에 청구된다. 1월 중순에 Cost Explorer에서 서비스별 비용이 0인지 본다. 예산 알림 기간은 2027-01-31까지지만(`budget_end`), bootstrap을 지우면 예산도 사라지므로 직접 확인한다.
