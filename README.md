@@ -116,7 +116,7 @@ flowchart LR
 
 ## 예상 월 비용
 
-<p align="center"><img src="docs/images/cost.svg" alt="예상 월 비용 막대 그래프: 고정비 약 8 USD, Bedrock 상한 약 1.7 USD, 예산 알림 계정 20 USD와 Bedrock 10 USD" width="100%"></p>
+<p align="center"><img src="docs/images/cost.svg" alt="예상 월 비용 막대 그래프: 고정비 약 8 USD, Bedrock 예산 10 USD에서 자동 차단, 예산 알림 계정 20 USD와 Bedrock 10 USD" width="100%"></p>
 
 지금은 dev 한 환경만 켜고 도메인이 없다.
 
@@ -129,19 +129,19 @@ flowchart LR
 | KMS 키 × 2 | 약 2 | 키당 월 1. 키가 있는 동안 과금, 삭제 후 7일 대기. 요청 요금은 버킷 키로 줄인다 |
 | GitHub Actions | 0 | 공개 레포 표준 러너 |
 | **고정비 합계** | **약 8** | |
-| Bedrock Claude Haiku 5.5 | 상한 약 1.7 | 추정, 아래 참고 |
+| Bedrock Claude Haiku 4.5 | 최대 10 | 사용량 비례. 예산 10달러를 넘으면 앱 사용자에 거부 정책이 자동으로 붙는다 |
 
 나중에 도메인을 사고 `main`까지 켜면 고정비는 약 14~15달러다(인스턴스 5 × 2, KMS 2, 스냅숏 약 1, Route 53 0.5, S3 1 미만). KMS 키는 bootstrap이 두 환경 몫을 미리 만든다.
 
 <details>
-<summary>Bedrock 상한 계산</summary>
+<summary>Bedrock 비용 방어</summary>
 
-- 하루 100회 × 30일 × 1환경(dev) = 월 3,000회.
-- 호출당 입력 3,000토큰, 출력 500토큰으로 가정한다.
-- Anthropic API 단가(100만 토큰당 입력 0.10, 출력 0.50)를 쓴다.
-- 회당 약 0.00055달러, 월 약 1.7달러다. `main`을 켜면 두 배다.
-- **미확인:** Bedrock 단가와 서울 리전 Global 프로파일 제공 여부.
-- 첫 달 Cost Explorer로 확인한다.
+- 앱에는 하루 AI 호출 한도가 없다. 비용은 예산으로만 막는다.
+- Bedrock 예산은 월 10달러다(`bootstrap/budget.tf`).
+- 실제 비용이 100%를 넘으면 dev 앱 IAM 사용자에 Bedrock 거부 정책이 자동으로 붙는다(`enable_bedrock_stop = true`).
+- 해제 절차는 [운영 문서 10절](docs/operations.md#10-bedrock-예산-차단과-해제)에 있다.
+- 예산 데이터는 하루에 몇 번만 갱신된다. 차단은 몇 시간 늦을 수 있다.
+- 사용자당 24시간 3회 제출 제한이 남아 있어 갑자기 크게 늘지는 않는다.
 
 </details>
 
