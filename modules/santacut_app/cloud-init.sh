@@ -9,6 +9,18 @@ apt_get() {
   DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 "$@"
 }
 
+# 512MB 번들(nano_3_0)에서 Spring과 Caddy, apt가 메모리를 넘기지 않게 1GB 스왑을 먼저 둔다.
+# 다시 실행해도 결과가 같다. 스왑은 비상용이라 swappiness를 낮게 둔다.
+if [[ ! -f /swapfile ]]; then
+  fallocate -l 1G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=1024
+  chmod 600 /swapfile
+  mkswap /swapfile
+fi
+swapon --show=NAME --noheadings | grep -qx /swapfile || swapon /swapfile
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >>/etc/fstab
+echo 'vm.swappiness=10' >/etc/sysctl.d/99-santacut-swap.conf
+sysctl -p /etc/sysctl.d/99-santacut-swap.conf
+
 apt_get update
 apt_get install -y ca-certificates curl sqlite3 age rclone unattended-upgrades
 
@@ -31,7 +43,7 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 # 앱 디렉터리. .env와 backup.env는 운영자가 직접 채운다(docs/operations.md).
 install -d -m 0750 -o ubuntu -g ubuntu /opt/santacut /opt/santacut/releases /opt/santacut/backups
 
-# 60GB 디스크에 SQLite가 같이 있으므로 배포 산출물을 주마다 정리한다.
+# 20GB 디스크(nano_3_0)에 SQLite와 스왑이 같이 있으므로 배포 산출물을 주마다 정리한다.
 # 롤백용으로 최근 7일 이미지와 최근 릴리스 3개는 남긴다.
 cat >/etc/cron.weekly/santacut-cleanup <<'CLEANUP'
 #!/bin/bash
