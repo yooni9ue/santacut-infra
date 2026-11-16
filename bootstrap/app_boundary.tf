@@ -4,12 +4,6 @@ data "aws_iam_policy_document" "app_boundary" {
   for_each = local.environments
 
   statement {
-    sid       = "InvokeBedrock"
-    actions   = ["bedrock:InvokeModel"]
-    resources = ["*"]
-  }
-
-  statement {
     sid       = "ListOwnBackupBucket"
     actions   = ["s3:ListBucket"]
     resources = ["arn:aws:s3:::santacut-${each.key}-backup-*"]
@@ -47,6 +41,7 @@ resource "aws_iam_policy" "app_boundary" {
 
   name = "santacut-${each.key}-app-boundary"
   # description을 바꾸면 정책이 교체되고, 사용자에 붙어 있으면 삭제가 실패한다. 범위 설명은 아래 정책 문서 주석에 둔다.
+  # 설명의 Bedrock 문구는 옛 범위다. 교체를 피하려고 그대로 두며, 지금 권한은 위 정책 문서가 기준이다.
   description = "산타컷 ${each.key} 앱 IAM 사용자의 권한 경계: Bedrock 호출과 자기 환경 백업 버킷 읽기·쓰기만 허용"
   policy      = data.aws_iam_policy_document.app_boundary[each.key].json
 }

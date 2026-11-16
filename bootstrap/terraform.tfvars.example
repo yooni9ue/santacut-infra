@@ -3,5 +3,3 @@
 # domain_name = "santacut.example"
 monthly_budget_usd  = 20
 budget_alert_emails = ["operator@example.com"]
-# dev만 쓰는 동안 enable_bedrock_stop을 켜려면 main 앱 사용자가 없으니 dev만 넣는다.
-# bedrock_stop_environments = ["dev"]

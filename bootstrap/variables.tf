@@ -25,35 +25,6 @@ variable "monthly_budget_usd" {
   default     = 20
 }
 
-variable "bedrock_budget_usd" {
-  description = "Bedrock 비용만 따로 보는 월 예산(USD)."
-  type        = number
-  default     = 10
-}
-
-variable "bedrock_cost_service_names" {
-  description = "Cost Explorer에서 Bedrock 모델 비용이 잡히는 서비스 이름 목록. 첫 호출 다음 날 Cost Explorer에서 실제 이름을 확인해 맞춘다."
-  type        = list(string)
-  default     = ["Amazon Bedrock"]
-}
-
-variable "enable_bedrock_stop" {
-  description = "Bedrock 예산을 실제로 100% 넘기면 앱 IAM 사용자에게 Bedrock 거부 정책을 자동으로 붙인다. bedrock_stop_environments의 앱 사용자가 모두 생긴 뒤 true로 켠다."
-  type        = bool
-  default     = false
-}
-
-variable "bedrock_stop_environments" {
-  description = "예산 초과 시 Bedrock 거부 정책을 붙일 앱 사용자의 환경 목록. dev만 쓸 때는 [\"dev\"], dev를 내리면 [\"main\"]으로 두고 bootstrap을 다시 적용한다."
-  type        = list(string)
-  default     = ["dev", "main"]
-
-  validation {
-    condition     = alltrue([for e in var.bedrock_stop_environments : contains(["dev", "main"], e)])
-    error_message = "bedrock_stop_environments에는 dev, main만 넣을 수 있다."
-  }
-}
-
 variable "budget_alert_emails" {
   description = "비용 알림을 받을 이메일 목록."
   type        = list(string)
