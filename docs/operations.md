@@ -340,14 +340,17 @@ aws lightsail close-instance-public-ports --instance-name santacut-main-app \
 `.github/workflows/health.yml`이 매시간 두 환경의 HTTP 응답과 S3 백업 신선도(마지막 백업 3시간 이내)를 확인한다. 인스턴스 상태 알람은 컨테이너가 죽어도 울리지 않기 때문에 이 확인이 필요하다.
 
 - 실패 메일은 이 워크플로의 cron을 마지막으로 고친 사용자에게만 간다. 그 사용자의 GitHub 알림 설정에서 Actions 실패 메일이 켜져 있는지 확인한다.
+- 현재 상태(2026-11-17): 워크플로 `active`. 도메인 변수를 넣은 뒤 첫 실행(2026-11-16 18:20 UTC)에서 dev가 `api-dev.santacut.me` 응답과 백업 신선도를 통과했다. main은 `MAIN_ENABLED`가 없어 건너뛴다. GitHub 스케줄은 부하에 따라 늦거나 빠질 수 있다.
 - 공개 레포는 60일 동안 활동이 없으면 스케줄 워크플로가 자동으로 꺼진다. 주간 점검에서 `gh workflow view health`로 켜져 있는지 보고, 꺼졌으면 `gh workflow enable health`로 켠다.
 
 ### Lightsail 알람
 
 `aws_lightsail_*`에는 알람 리소스가 없어 CLI로 한 번 건다(알람 요금은 적용 전에 요금 페이지에서 확인한다). 연락처 등록 후 받은 **인증 메일의 링크를 눌러야** 알람이 발송된다. dev만 쓰는 동안은 아래 반복문에서 `main`을 뺀다.
 
+현재 상태(2026-11-17): 연락처 `fkanwm@naver.com`(예산 알림과 같은 주소)과 dev 알람 두 개(`santacut-dev-status`, `santacut-dev-burst`)를 걸었다. 연락처는 `PendingVerification`이라 **인증 메일 링크를 눌러야** 메일이 간다. 확인: `aws lightsail get-contact-methods --query 'contactMethods[].status'`가 `Valid`. Lightsail 요금 페이지에는 알람 별도 요금이 나와 있지 않다(서버 모니터링 포함). main을 켜면 아래 반복문을 `main`으로 실행한다.
+
 ```sh
-aws lightsail create-contact-method --protocol Email --contact-endpoint operator@example.com
+aws lightsail create-contact-method --protocol Email --contact-endpoint fkanwm@naver.com
 for env in dev main; do
   aws lightsail put-alarm --alarm-name santacut-$env-status --monitored-resource-name santacut-$env-app \
     --metric-name StatusCheckFailed --comparison-operator GreaterThanOrEqualToThreshold \
@@ -357,6 +360,10 @@ for env in dev main; do
     --threshold 20 --evaluation-periods 3 --contact-protocols Email --notification-enabled
 done
 ```
+
+### 비용 알림 (AWS Budgets)
+
+`santacut-monthly`(월 20 USD)가 실제 80%·100%, 예측 100%에서 `fkanwm@naver.com`으로 메일을 보낸다(2026-11-17 확인).
 
 ### 주간 점검
 
