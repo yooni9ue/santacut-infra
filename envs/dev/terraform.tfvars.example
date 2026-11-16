@@ -3,4 +3,3 @@
 # domain_name                = "santacut.example"
 ssh_public_key               = "ssh-ed25519 AAAA... santacut-deploy"
 ssh_allowed_cidrs            = ["203.0.113.10/32"]
-bedrock_model_id             = "anthropic.claude-haiku-5-5-REPLACE"

@@ -79,16 +79,6 @@ variable "backup_noncurrent_days" {
   default     = 7
 }
 
-variable "bedrock_model_id" {
-  description = "Claude Haiku 5.5 기반 모델 ID(anthropic.으로 시작). Global 추론 프로파일 ID는 앞에 global.을 붙여 만든다."
-  type        = string
-
-  validation {
-    condition     = startswith(var.bedrock_model_id, "anthropic.")
-    error_message = "bedrock_model_id는 anthropic.으로 시작하는 기반 모델 ID여야 한다(global. 접두사 없이)."
-  }
-}
-
 variable "kms_key_arn" {
   description = "이 환경의 KMS 키 ARN(bootstrap kms.tf, 별칭 alias/santacut-<env>). 백업 버킷 기본 암호화와 앱 IAM 권한에 쓴다."
   type        = string

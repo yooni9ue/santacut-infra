@@ -24,11 +24,11 @@ output "backup_bucket" {
 }
 
 output "app_iam_user" {
-  description = "앱이 Bedrock과 백업 버킷에 접근할 때 쓰는 IAM 사용자. 액세스 키는 docs/operations.md 절차로 발급한다."
+  description = "백업과 앱 설정을 받으려고 S3 버킷에 접근할 때 쓰는 IAM 사용자. 액세스 키는 docs/operations.md 절차로 발급한다."
   value       = aws_iam_user.app.name
 }
 
 output "kms_key_arn" {
-  description = "백업 버킷과 앱 설정을 암호화하는 KMS 키 ARN. backup.env의 sse_kms_key_id에 넣는다."
+  description = "백업 버킷과 앱 설정을 암호화하는 KMS 키 ARN. cloud-init이 backup.env의 sse_kms_key_id에 넣는다."
   value       = var.kms_key_arn
 }

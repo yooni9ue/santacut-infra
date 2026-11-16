@@ -1,9 +1,6 @@
 # Lightsail 인스턴스는 IAM 역할을 쓸 수 없어 앱 전용 IAM 사용자를 둔다.
 # 액세스 키는 상태 파일에 남지 않도록 Terraform이 아니라 사람이 발급해 인스턴스에 직접 쓴다(docs/operations.md 6절).
 locals {
-  inference_profile_id  = "global.${var.bedrock_model_id}"
-  inference_profile_arn = "arn:aws:bedrock:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${local.inference_profile_id}"
-
   # bootstrap/app_boundary.tf가 환경마다 만드는 권한 경계. 인라인 정책이 무엇이든 권한 상한이 여기서 고정된다.
   app_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/santacut-${var.environment}-app-boundary"
 }
@@ -15,32 +12,6 @@ resource "aws_iam_user" "app" {
 }
 
 data "aws_iam_policy_document" "app" {
-  # 프로파일 평가에는 bedrock:InferenceProfileArn 키가 없으므로 조건을 걸지 않는다.
-  statement {
-    sid       = "InvokeScoreModelProfile"
-    effect    = "Allow"
-    actions   = ["bedrock:InvokeModel"]
-    resources = [local.inference_profile_arn]
-  }
-
-  # Global 교차 리전 추론은 요청을 다른 리전의 기반 모델로 보낸다. 이 프로파일을 거친 호출만 허용한다.
-  # 리전 없는 기반 모델 ARN은 Global 추론에 필요하다.
-  statement {
-    sid     = "InvokeFoundationModelThroughProfile"
-    effect  = "Allow"
-    actions = ["bedrock:InvokeModel"]
-    resources = [
-      "arn:aws:bedrock:${data.aws_region.current.region}::foundation-model/${var.bedrock_model_id}",
-      "arn:aws:bedrock:::foundation-model/${var.bedrock_model_id}",
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "bedrock:InferenceProfileArn"
-      values   = [local.inference_profile_arn]
-    }
-  }
-
   statement {
     sid       = "ListBackupBucket"
     effect    = "Allow"

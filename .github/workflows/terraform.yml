@@ -57,7 +57,6 @@ jobs:
       TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
       TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
       TF_VAR_ssh_allowed_cidrs: ${{ vars.SSH_ALLOWED_CIDRS }}
-      TF_VAR_bedrock_model_id: ${{ vars.BEDROCK_MODEL_ID }}
     permissions:
       contents: read
       id-token: write
@@ -91,7 +90,6 @@ jobs:
       TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
       TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
       TF_VAR_ssh_allowed_cidrs: ${{ vars.SSH_ALLOWED_CIDRS }}
-      TF_VAR_bedrock_model_id: ${{ vars.BEDROCK_MODEL_ID }}
     environment: dev
     permissions:
       contents: read
@@ -126,7 +124,6 @@ jobs:
       TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
       TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
       TF_VAR_ssh_allowed_cidrs: ${{ vars.SSH_ALLOWED_CIDRS }}
-      TF_VAR_bedrock_model_id: ${{ vars.BEDROCK_MODEL_ID }}
     permissions:
       contents: read
       id-token: write
@@ -176,7 +173,6 @@ jobs:
       TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
       TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
       TF_VAR_ssh_allowed_cidrs: ${{ vars.SSH_ALLOWED_CIDRS }}
-      TF_VAR_bedrock_model_id: ${{ vars.BEDROCK_MODEL_ID }}
     # main Environment에 필수 승인자를 걸어 둔다. 승인자는 plan-main 실행 요약의 plan을 보고 승인한다.
     environment: main
     permissions:

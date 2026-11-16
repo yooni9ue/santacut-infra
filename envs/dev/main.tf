@@ -58,6 +58,5 @@ module "app" {
   ssh_public_key    = var.ssh_public_key
   ssh_allowed_cidrs = var.ssh_allowed_cidrs
 
-  bedrock_model_id = var.bedrock_model_id
-  kms_key_arn      = data.aws_kms_alias.env.target_key_arn
+  kms_key_arn = data.aws_kms_alias.env.target_key_arn
 }

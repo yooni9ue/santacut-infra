@@ -37,7 +37,6 @@ variables {
   zone_id           = "Z0000000000000000000"
   ssh_public_key    = "ssh-ed25519 AAAATEST santacut-test"
   ssh_allowed_cidrs = ["203.0.113.10/32"]
-  bedrock_model_id  = "anthropic.claude-haiku-test"
   kms_key_arn       = "arn:aws:kms:ap-northeast-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab"
 }
 
@@ -66,15 +65,6 @@ run "app_user_has_permissions_boundary" {
   assert {
     condition     = aws_iam_user.app.permissions_boundary == "arn:aws:iam::123456789012:policy/santacut-dev-app-boundary"
     error_message = "앱 IAM 사용자에는 santacut-dev-app-boundary 권한 경계가 걸려 있어야 한다."
-  }
-}
-
-run "inference_profile_is_derived_from_model_id" {
-  command = plan
-
-  assert {
-    condition     = local.inference_profile_arn == "arn:aws:bedrock:ap-northeast-2:123456789012:inference-profile/global.anthropic.claude-haiku-test"
-    error_message = "추론 프로파일 ARN은 global.<기반 모델 ID>여야 한다."
   }
 }
 
@@ -203,16 +193,6 @@ run "ssh_ipv6_cidr_is_rejected" {
   expect_failures = [var.ssh_allowed_cidrs]
 }
 
-run "profile_id_instead_of_model_id_is_rejected" {
-  command = plan
-
-  variables {
-    bedrock_model_id = "global.anthropic.claude-haiku-test"
-  }
-
-  expect_failures = [var.bedrock_model_id]
-}
-
 run "unknown_environment_is_rejected" {
   command = plan
 
@@ -324,6 +304,7 @@ run "cloud_init_fetches_secrets_from_own_bucket" {
     condition     = !strcontains(aws_lightsail_instance.app.user_data, " age ")
     error_message = "첫 부팅 스크립트에 age 설치가 남아 있으면 안 된다."
   }
+
 }
 
 run "kms_alias_instead_of_arn_is_rejected" {
