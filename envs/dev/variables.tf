@@ -6,9 +6,9 @@ variable "domain_name" {
 }
 
 variable "bundle_id" {
-  description = "Lightsail 번들(사양). nano_3_0은 512MB·월 5달러. 바꾸려면 docs/operations.md '인스턴스 교체' 절차를 따른다."
+  description = "Lightsail 번들(사양). micro_3_0은 1GB·월 7달러. 바꾸려면 docs/operations.md '인스턴스 교체' 절차를 따른다."
   type        = string
-  default     = "nano_3_0"
+  default     = "micro_3_0"
 }
 
 variable "ssh_public_key" {

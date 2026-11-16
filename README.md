@@ -122,7 +122,7 @@ flowchart LR
 
 | 항목 | 월 비용(USD) | 근거 |
 | --- | ---: | --- |
-| Lightsail `nano_3_0` × 1 | 5 | 512MB·2 vCPU·20GB, 공인 IPv4 포함. `get-bundles`로 서울 가격 확인 |
+| Lightsail `micro_3_0` × 1 (dev) | 7 | 1GB·2 vCPU·40GB, 공인 IPv4 포함. 2026-11-16에 512MB에서 올렸다(기동 212초 → 26초). `get-bundles`로 서울 가격 확인 |
 | 자동 스냅숏 | 약 0.5 | GB당 0.05, 증분(추정) |
 | Route 53 호스팅 영역 | 0 | 도메인을 산 뒤 0.5 |
 | S3(상태·백업) | 1 미만 | 수 GB 이하 |
