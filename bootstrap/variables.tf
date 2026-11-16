@@ -63,3 +63,20 @@ variable "budget_alert_emails" {
     error_message = "비용 알림을 받을 이메일을 하나 이상 넣어야 한다."
   }
 }
+
+variable "project_end_date" {
+  description = "프로젝트 종료일(YYYY-MM-DD). 모든 리소스의 ExpiresOn 태그에 넣는다. 철거 절차는 docs/operations.md 13절."
+  type        = string
+  default     = "2026-12-31"
+
+  validation {
+    condition     = can(regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", var.project_end_date))
+    error_message = "project_end_date는 YYYY-MM-DD 형식이어야 한다."
+  }
+}
+
+variable "budget_end" {
+  description = "예산 알림이 끝나는 시각(YYYY-MM-DD_HH:MM). 12월 사용분이 1월에 청구되므로 종료일보다 한 달 뒤로 둔다."
+  type        = string
+  default     = "2027-01-31_00:00"
+}

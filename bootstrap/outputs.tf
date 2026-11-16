@@ -22,3 +22,8 @@ output "apply_role_arns" {
   description = "환경별 apply 역할. 각 GitHub Environment 변수 AWS_APPLY_ROLE_ARN에 넣는다."
   value       = { for env, role in aws_iam_role.apply : env => role.arn }
 }
+
+output "kms_key_arns" {
+  description = "환경별 KMS 키 ARN. 백업 스크립트의 sse_kms_key_id에 쓴다. 각 환경 출력값 kms_key_arn과 같다."
+  value       = { for env, key in aws_kms_key.env : env => key.arn }
+}

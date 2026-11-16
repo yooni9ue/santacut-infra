@@ -6,6 +6,9 @@ resource "aws_budgets_budget" "monthly" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
+  # 프로젝트 종료 뒤 1월 청구분까지만 본다.
+  time_period_end = var.budget_end
+
   notification {
     comparison_operator        = "GREATER_THAN"
     threshold                  = 80
@@ -39,6 +42,9 @@ resource "aws_budgets_budget" "bedrock" {
   limit_amount = tostring(var.bedrock_budget_usd)
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
+
+  # 프로젝트 종료 뒤 1월 청구분까지만 본다.
+  time_period_end = var.budget_end
 
   cost_filter {
     name   = "Service"

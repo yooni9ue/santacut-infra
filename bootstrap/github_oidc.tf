@@ -63,7 +63,8 @@ data "aws_iam_policy_document" "deny_instance_access" {
   }
 }
 
-# Terraform 역할 공통: 백업 객체는 읽지 않는다(ReadOnlyAccess의 s3:Get*을 상쇄).
+# Terraform 역할 공통: 백업 객체와 config/app.env는 읽지 않는다(ReadOnlyAccess의 s3:Get*을 상쇄).
+# 객체가 KMS로 암호화돼 있고 이 역할들에는 kms:Decrypt가 없어 이중으로 막힌다.
 data "aws_iam_policy_document" "deny_backup_objects" {
   statement {
     sid       = "DenyBackupObjectRead"
@@ -278,6 +279,14 @@ data "aws_iam_policy_document" "apply" {
       "arn:aws:s3:::santacut-${each.key}-*",
       "arn:aws:s3:::santacut-${each.key}-*/*",
     ]
+  }
+
+  # 백업 버킷 기본 암호화(SSE-KMS)에 넣을 자기 환경 키만 조회한다. 복호화 권한은 주지 않는다.
+  # 키 조회(ListAliases, DescribeKey)는 ReadOnlyAccess로도 되지만, 필요한 권한을 여기에 명시해 둔다.
+  statement {
+    sid       = "DescribeOwnKmsKey"
+    actions   = ["kms:DescribeKey"]
+    resources = [aws_kms_key.env[each.key].arn]
   }
 
   statement {

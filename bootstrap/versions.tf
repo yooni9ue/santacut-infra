@@ -19,6 +19,7 @@ provider "aws" {
       Project   = "santacut"
       Stack     = "bootstrap"
       ManagedBy = "terraform"
+      ExpiresOn = var.project_end_date
     }
   }
 }
