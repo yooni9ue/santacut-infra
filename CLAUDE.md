@@ -8,8 +8,8 @@
 | --- | --- |
 | 실행 | 환경마다 AWS Lightsail 인스턴스 한 대. 앱 레포의 Docker Compose(Caddy + Spring)와 `deploy.sh`를 그대로 쓴다 |
 | DB | SQLite 유지. 인스턴스 디스크에 두고 Lightsail 자동 스냅숏과 S3 백업(SSE-KMS)으로 지킨다 |
-| AI | Google Gemini 2.5 Flash(2026-11-16 Bedrock에서 바꿈). 서버에서 모델을 돌리지 않는다. 키는 S3 `config/app.env`에 둔다 |
-| 분석 진행 | 폴링(GET 2~3초 간격). SSE를 쓰지 않는다 |
+| AI | Google Gemini 3.5 Flash-Lite(2026-11-16 Bedrock에서 바꿈). 서버에서 모델을 돌리지 않는다. 키(`GEMINI_API_KEY`)는 S3 `config/app.env`에 둔다 |
+| 분석 진행 | SSE 스트림(`/v1/analyses/{id}/events`)이 기본이고, 안 되면 폴링(2~3초 간격). Caddy는 이 경로를 압축·버퍼링하지 않는다 |
 | 계정 | dev와 main은 같은 AWS 계정에서 이름 접두사(`santacut-dev-`, `santacut-main-`)와 IAM 범위로 나눈다 |
 | 리전 | 서울(`ap-northeast-2`) |
 
