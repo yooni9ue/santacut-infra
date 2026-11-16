@@ -119,7 +119,7 @@ Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개�
 | `DOMAIN_NAME` | 서비스 도메인. 도메인을 사기 전에는 비워 둔다 |
 | `SSH_PUBLIC_KEY` | 배포용 SSH 공개 키 |
 | `SSH_ALLOWED_CIDRS` | HCL 목록 형식, /24 이상, 예: `["203.0.113.10/32"]`. SSH(22)만 제한한다. 80/443은 모두에게 열려 있어 프런트엔드 접속에는 영향이 없다 |
-| `BEDROCK_MODEL_ID` | 3단계의 기반 모델 ID(`anthropic.`으로 시작) |
+| `BEDROCK_MODEL_ID` | 3단계의 기반 모델 ID(`anthropic.`으로 시작). 앱이 Gemini로 바뀐 뒤로는 IAM 정책에만 남아 있다 |
 | `DEV_ENABLED` | 평소에는 비워 둔다. dev를 내렸을 때만 `false` |
 | `MAIN_ENABLED` | 운영을 켤 때만 `true`. 비우면 dev만 plan·적용한다(12절) |
 | `HEALTH_PATH` | 상태 확인 경로. 비우면 `/v3/api-docs` |
@@ -197,7 +197,7 @@ aws lightsail get-instance-port-states --instance-name santacut-dev-app
      --> /run/santacut/app.env (tmpfs, 600, ubuntu) --> docker compose env_file
 ```
 
-- `fetch-secrets.sh`는 받은 설정 뒤에 자격 증명 파일의 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`를 붙인다. 그래서 S3의 `app.env`에는 액세스 키를 넣지 않는다.
+- `fetch-secrets.sh`는 받은 설정 뒤에 자격 증명 파일의 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`를 붙인다. 그래서 S3의 `app.env`에는 액세스 키를 넣지 않는다. 앱은 이제 AWS 키를 쓰지 않고, 백업 스크립트가 같은 자격 증명 파일을 쓴다.
 - 앱 사용자는 `config/`를 읽기만 하고, `backups/`에만 쓴다.
 
 ### 1) 액세스 키 발급과 인스턴스 기록
@@ -236,10 +236,8 @@ ACME_EMAIL=
 PUBLIC_BASE_URL=http://<static_ip>
 SESSION_SECURE=false            # 도메인과 HTTPS를 쓸 때만 true
 APP_SEASON_YEAR=2026
-AWS_REGION=ap-northeast-2
-# 반드시 global.로 시작하는 프로파일 ID. 기반 모델 ID로 호출하면 IAM 조건에 걸려 거부된다.
-# 비스트리밍 호출(bedrock-runtime Converse, InvokeModel)만 허용된다.
-BEDROCK_MODEL_ID=global.anthropic.claude-haiku-4-5-20251001-v1:0
+# Google AI Studio에서 받은 Gemini API 키. 앱은 이 키가 없으면 뜨지 않는다.
+GEMINI_API_KEY=<Gemini API 키>
 # dev에만 둔다. 프롬프트 관리 API(/v1/admin/prompts)를 켠다. main에서는 이 줄을 빼 404로 둔다.
 PROMPT_ADMIN_ENABLED=true
 ```
