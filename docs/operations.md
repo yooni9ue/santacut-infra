@@ -48,7 +48,7 @@ bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-m
 - `domain_name`을 비워 두면 Route 53 호스팅 영역과 A 레코드를 만들지 않는다. 비용은 0이다.
 - 레포 변수 `DOMAIN_NAME`도 비워 둔다. CI가 빈 문자열을 넘겨도 도메인 없음으로 처리한다.
 - 접속 주소는 각 환경 출력값 `app_url`이다. `http://<static_ip>` 형식이다.
-- Caddy는 도메인이 있어야 TLS 인증서를 받는다. 그전에는 HTTP로만 접속한다. 앱 레포 Caddyfile을 HTTP 주소(`:80`)로 맞춘다.
+- Caddy는 도메인이 있어야 TLS 인증서를 받는다. 그전에는 HTTP로만 접속한다. 앱 설정에서 `DOMAIN`을 비우면 앱 레포 Caddyfile이 `:80`으로 받는다. `PUBLIC_BASE_URL=http://<static_ip>`, `SESSION_SECURE=false`로 둔다.
 - HTTP는 암호화되지 않는다. 실제 사용자 데이터는 도메인과 TLS를 갖춘 뒤 받는다.
 - 상태 확인 워크플로(`health.yml`)는 `DOMAIN_NAME`이 비어 있으면 건너뛴다.
 
@@ -60,7 +60,7 @@ bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-m
 2. 가비아 도메인 관리 → 네임서버 설정에서 `name_servers` 출력값 4개를 등록한다. 반영까지 최대 하루가 걸릴 수 있다. `dig NS <도메인>`으로 확인한다.
 3. 레포 변수 `DOMAIN_NAME`에 같은 도메인을 넣는다.
 4. `workflow_dispatch`로 terraform 워크플로를 돌리거나 PR을 병합한다. dev의 A 레코드(`dev.<도메인>`)가 생긴다.
-5. 로컬 앱 설정 파일의 `DOMAIN`, `ACME_EMAIL`을 채워 `scripts/put-secrets.sh`로 다시 올리고, Caddyfile을 도메인 주소로 되돌린 뒤 앱을 다시 띄운다(6단계).
+5. 로컬 앱 설정 파일에 `DOMAIN`, `ACME_EMAIL`을 채우고 `PUBLIC_BASE_URL=https://<도메인>`, `SESSION_SECURE=true`로 바꾼다. `scripts/put-secrets.sh`로 다시 올리고 앱을 다시 띄운다(6절). Caddyfile은 고치지 않는다.
 
 ## 3. Bedrock 모델 활성화
 
@@ -227,15 +227,22 @@ docker image rm public.ecr.aws/aws-cli/aws-cli
 
 ### 2) 앱 설정을 암호화해 올리기 (운영자 PC)
 
-앱 레포 `backend/ci-cd/deploy/.env.example`의 필수 키(`DOMAIN`, `ACME_EMAIL`, `APP_SEASON_YEAR` 등)를 채우고, Bedrock 설정을 더한다. 변수 이름은 앱 레포 설정과 맞춘다. **`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`는 넣지 않는다.**
+앱 레포 `backend/ci-cd/deploy/.env.example`의 키를 채운다. 변수 이름은 앱 레포 설정과 맞춘다. **`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`는 넣지 않는다.**
 
 ```sh
-DOMAIN=dev.santacut.kr
-ACME_EMAIL=operator@example.com
+# 도메인이 없으면 DOMAIN, ACME_EMAIL을 비우고 PUBLIC_BASE_URL을 http://<static_ip>로 둔다.
+DOMAIN=
+ACME_EMAIL=
+PUBLIC_BASE_URL=http://<static_ip>
+SESSION_SECURE=false            # 도메인과 HTTPS를 쓸 때만 true
+APP_SEASON_YEAR=2026
 AWS_REGION=ap-northeast-2
 # 반드시 global.로 시작하는 프로파일 ID. 기반 모델 ID로 호출하면 IAM 조건에 걸려 거부된다.
 # 비스트리밍 호출(bedrock-runtime Converse, InvokeModel)만 허용된다.
-BEDROCK_MODEL_ID=global.anthropic.claude-haiku-5-5-...
+BEDROCK_MODEL_ID=global.anthropic.claude-haiku-4-5-20251001-v1:0
+SANTACUT_AI_DAILY_CALL_LIMIT=100
+# dev에만 둔다. 프롬프트 관리 API(/v1/admin/prompts)를 켠다. main에서는 이 줄을 빼 404로 둔다.
+PROMPT_ADMIN_ENABLED=true
 ```
 
 이 파일을 권한 600으로 만들고 올린다. 스크립트는 WSL, Linux, macOS에서 돌린다. Git Bash는 파일 권한을 표현하지 못해 항상 거부된다.
@@ -260,11 +267,7 @@ stat -c '%a %U' /run/santacut/app.env             # 600 ubuntu
 findmnt -no FSTYPE -T /run/santacut               # tmpfs
 ```
 
-Compose는 이 파일을 읽어야 한다. 앱 레포 `deploy/compose.yml`의 앱 서비스에 `env_file: /run/santacut/app.env`를 두고, 보간용 `--env-file`도 같은 경로를 쓴다. 앱 레포 `deploy.sh`가 아직 `/opt/santacut/.env`를 쓰면 심볼릭 링크로 잇는다.
-
-```sh
-ln -sfn /run/santacut/app.env /opt/santacut/.env
-```
+Compose는 이 파일을 읽는다. 앱 레포 `deploy/compose.yml`의 앱 서비스가 `env_file: /run/santacut/app.env`이고, `deploy.sh`·`backup.sh`의 보간용 `--env-file`도 같은 경로다. `/opt/santacut/.env`는 더 이상 쓰지 않는다.
 
 Compose는 `env_file`을 `up`할 때만 읽는다. 설정을 바꿨으면 `docker compose --env-file /run/santacut/app.env -f /opt/santacut/current/deploy/compose.yml up -d --force-recreate`로 컨테이너를 다시 만든다.
 
@@ -273,7 +276,7 @@ Compose는 `env_file`을 `up`할 때만 읽는다. 설정을 바꿨으면 `docke
 기본 번들 `nano_3_0`은 메모리가 512MB다. Caddy와 Spring을 함께 돌리기에 빠듯하다.
 
 - 첫 부팅 스크립트가 1GB 스왑(`/swapfile`)을 만들고 `vm.swappiness=10`으로 둔다. 스왑은 비상용이다.
-- JVM 힙을 반드시 제한한다. 예: `JAVA_TOOL_OPTIONS=-Xmx256m` 또는 `-XX:MaxRAMPercentage=50`. 넘기는 방법은 앱 레포 Compose에 맞춘다.
+- 앱 레포 Compose가 메모리를 나눈다. 앱 `mem_limit: 400m`(JVM `-Xmx256m`, SerialGC, `-Xss512k`, `ExitOnOutOfMemoryError`), Caddy `mem_limit: 64m`.
 - 컨테이너가 OOM으로 죽거나 응답이 느려지면 사양을 올린다. `bundle_id`를 바꾸고 9절의 인스턴스 교체 절차를 따른다.
 
 ### `/opt/santacut/backup.env` (권한 600, 소유자 ubuntu)
@@ -320,10 +323,10 @@ BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_buc
 ## 7. 앱 배포 연동 (앱 레포에서 할 일)
 
 - 앱 레포 GitHub Environment 이름을 `dev`, `main`으로 맞추고, 각각 배포 브랜치를 `main`으로 제한한다. 변수 `AWS_DEPLOY_ROLE_ARN`에 `app_deploy_role_arns.<env>`를 넣는다.
-- 앱의 Compose에서 Ollama 설정을 빼고 Bedrock 설정과 AWS 키를 넘긴다. 앱은 bedrock-runtime Converse(비스트리밍)로 호출하고, 요청마다 최대 출력 토큰을 정하고, 호출 전에 일일 토큰 한도를 확인한다.
-- 릴리스 묶음(tar)에 `scripts/deploy.sh`와 함께 **`scripts/backup.sh`를 넣는다.** 지금 앱 레포 워크플로는 `deploy.sh`만 넣는다.
-- `backup.sh`에서 age 암호화를 뺀다. SQLite `.backup` 결과를 그대로 `$BACKUP_REMOTE`(`backups/sqlite`)에 올리면 S3가 KMS로 암호화한다. `BACKUP_AGE_RECIPIENT`는 더 이상 없다.
-- Compose와 `deploy.sh`는 앱 설정을 `/run/santacut/app.env`에서 읽는다(6절 3).
+- 완료(2026-11-16): 앱 Compose에서 Ollama 설정을 뺐다. 앱은 Spring AI Bedrock Converse(비스트리밍)로 부르고, 요청마다 최대 출력 토큰(500)을 정하고, 호출 전에 일일 호출 한도(`SANTACUT_AI_DAILY_CALL_LIMIT`)를 확인한다. AWS 키는 `app.env`의 환경 변수로 받는다(기본 자격 증명 체인).
+- 완료: 릴리스 묶음(tar)에 `scripts/deploy.sh`와 `scripts/backup.sh`가 함께 들어간다.
+- 완료: `backup.sh`에서 age 암호화를 뺐다. SQLite `.backup` 결과를 `$BACKUP_REMOTE`(`backups/sqlite`)에 올리면 S3가 KMS로 암호화한다. 올린 뒤 내려받아 대조하고, 로컬 복사본은 2일만 둔다. `BACKUP_AGE_RECIPIENT`는 없다.
+- 완료: Compose와 `deploy.sh`, `backup.sh`는 앱 설정을 `/run/santacut/app.env`에서 읽는다(6절 3).
 - 배포 대상 주소는 각 환경 출력값 `static_ip`다.
 
 ### 배포 중 임시 SSH
