@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 760" width="1200" height="760" role="img" aria-label="산타컷 AWS 아키텍처. 지금은 dev 한 환경만 켜고, 도메인 없이 고정 IP로 HTTP 접속한다. Route 53과 main은 나중에 켠다">
-  <title>산타컷 AWS 아키텍처. 지금은 dev 한 환경만 켜고, 도메인 없이 고정 IP로 HTTP 접속한다. Route 53과 main은 나중에 켠다</title>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 760" width="1200" height="760" role="img" aria-label="아키텍처: 사용자가 Route 53(santacut.me, 가비아 네임서버 위임)을 거쳐 HTTPS로 dev 고정 IP의 Lightsail micro_3_0(1GB) 인스턴스에 접속한다. Caddy(Let's Encrypt, HSTS)와 Spring Boot, SQLite가 있고 매일 스냅숏과 매시 S3 백업(SSE-KMS)을 둔다. AI 점수는 AWS 밖 Gemini 3.5 Flash-Lite에서 받는다. main 환경은 MAIN_ENABLED=true일 때 켠다">
+  <title>아키텍처: 사용자가 Route 53(santacut.me, 가비아 네임서버 위임)을 거쳐 HTTPS로 dev 고정 IP의 Lightsail micro_3_0(1GB) 인스턴스에 접속한다. Caddy(Let's Encrypt, HSTS)와 Spring Boot, SQLite가 있고 매일 스냅숏과 매시 S3 백업(SSE-KMS)을 둔다. AI 점수는 AWS 밖 Gemini 3.5 Flash-Lite에서 받는다. main 환경은 MAIN_ENABLED=true일 때 켠다</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0C1B2E"/><stop offset="0.62" stop-color="#0B1D2D"/><stop offset="1" stop-color="#0B2422"/>
@@ -37,7 +37,7 @@
   <!-- legend -->
   <g transform="translate(82,86)">
     <path d="M0,0 H34" class="line"/><text class="xs" x="44" y="5">지금 켜 있음</text>
-    <path d="M150,0 H184" class="later"/><text class="xs" x="194" y="5">나중에 켬(도메인, MAIN_ENABLED)</text>
+    <path d="M150,0 H184" class="later"/><text class="xs" x="194" y="5">나중에 켬(MAIN_ENABLED)</text>
   </g>
   <use href="#flake" xlink:href="#flake" x="1124" y="76" width="16" height="16" stroke="#F5F8FC" opacity="0.3"/>
 
@@ -49,18 +49,18 @@
 
   <!-- now: straight to the dev static IP over HTTP -->
   <path class="line" d="M102,330 V270 Q102,252 120,252 H378" marker-end="url(#arr)"/>
-  <rect x="150" y="224" width="176" height="24" rx="12" fill="#0E3328"/>
-  <text x="238" y="241" text-anchor="middle" font-size="13" font-weight="700" fill="#4CC38A">지금: 고정 IP로 HTTP</text>
+  <rect x="124" y="224" width="228" height="24" rx="12" fill="#0E3328"/>
+  <text x="238" y="241" text-anchor="middle" font-size="13" font-weight="700" fill="#4CC38A">HTTPS api-dev.santacut.me</text>
 
   <!-- later: Route 53 -->
-  <path class="later" d="M164,420 H196" marker-end="url(#arrLater)"/>
-  <rect class="ghost" x="200" y="352" width="136" height="124" rx="16"/>
+  <path class="line" d="M164,420 H196" marker-end="url(#arr)"/>
+  <rect class="card" x="200" y="352" width="136" height="124" rx="16"/>
   <circle cx="268" cy="394" r="20" fill="none" stroke="#8ECDF5" stroke-width="2.5"/>
   <ellipse cx="268" cy="394" rx="8" ry="20" fill="none" stroke="#8ECDF5" stroke-width="1.8"/>
   <path d="M248,394 H288" stroke="#8ECDF5" stroke-width="1.8"/>
   <text class="h" x="268" y="440" text-anchor="middle">Route 53</text>
-  <text class="xs" x="268" y="461" text-anchor="middle">도메인을 산 뒤</text>
-  <path class="later" d="M336,380 C358,380 356,284 378,284" marker-end="url(#arrLater)"/>
+  <text class="xs" x="268" y="461" text-anchor="middle">가비아 NS 위임</text>
+  <path class="line" d="M336,380 C358,380 356,284 378,284" marker-end="url(#arr)"/>
   <path class="later" d="M336,440 C358,440 356,562 378,562" marker-end="url(#arrLater)"/>
 
   <!-- dev lane: on -->
@@ -77,10 +77,10 @@
     <path class="line" d="M502,252 H526" marker-end="url(#arr)"/>
     <rect class="card" x="530" y="164" width="290" height="176" rx="16"/>
     <text class="h" x="548" y="190">Lightsail 인스턴스</text>
-    <text class="xs" x="808" y="190" text-anchor="end">nano_3_0, 512MB</text>
+    <text class="xs" x="808" y="190" text-anchor="end">micro_3_0, 1GB</text>
     <rect class="inner" x="546" y="206" width="108" height="58" rx="10"/>
     <text class="h" x="600" y="231" text-anchor="middle">Caddy</text>
-    <text class="xs" x="600" y="252" text-anchor="middle">지금 HTTP :80</text>
+    <text class="xs" x="600" y="252" text-anchor="middle">HTTPS, HSTS</text>
     <path class="line" d="M654,235 H674" marker-end="url(#arr)"/>
     <rect class="inner" x="678" y="206" width="126" height="58" rx="10"/>
     <text class="h" x="741" y="231" text-anchor="middle">Spring Boot</text>
@@ -116,10 +116,10 @@
     <path class="later" d="M502,532 H526" marker-end="url(#arrLater)"/>
     <rect class="ghost" x="530" y="444" width="290" height="176" rx="16"/>
     <text class="h" x="548" y="470">Lightsail 인스턴스</text>
-    <text class="xs" x="808" y="470" text-anchor="end">nano_3_0, 512MB</text>
+    <text class="xs" x="808" y="470" text-anchor="end">micro_3_0, 1GB</text>
     <rect class="inner" x="546" y="486" width="108" height="58" rx="10"/>
     <text class="h" x="600" y="511" text-anchor="middle">Caddy</text>
-    <text class="xs" x="600" y="532" text-anchor="middle">TLS 종료</text>
+    <text class="xs" x="600" y="532" text-anchor="middle">HTTPS, HSTS</text>
     <path class="line" d="M654,515 H674" marker-end="url(#arr)"/>
     <rect class="inner" x="678" y="486" width="126" height="58" rx="10"/>
     <text class="h" x="741" y="511" text-anchor="middle">Spring Boot</text>
@@ -147,12 +147,12 @@
   </g>
   <text class="h" x="1093" y="296" text-anchor="middle">Google</text>
   <text class="h" x="1093" y="318" text-anchor="middle">Gemini</text>
-  <text class="s" x="1093" y="352" text-anchor="middle">2.5</text>
-  <text class="s" x="1093" y="372" text-anchor="middle">Flash</text>
+  <text class="s" x="1093" y="352" text-anchor="middle">3.5</text>
+  <text class="s" x="1093" y="372" text-anchor="middle">Flash-Lite</text>
   <rect x="1038" y="396" width="110" height="28" rx="14" fill="#8ECDF5" fill-opacity="0.18"/>
   <text x="1093" y="415" text-anchor="middle" font-size="14" font-weight="700" fill="#8ECDF5">외부 API</text>
   <text class="xs" x="1093" y="460" text-anchor="middle">AWS 밖</text>
-  <text class="xs" x="1093" y="480" text-anchor="middle">앱 비용 한도</text>
+  <text class="xs" x="1093" y="480" text-anchor="middle">앱 한 달 한도</text><text class="xs" x="1093" y="500" text-anchor="middle">선불 크레딧</text>
   <text class="xs" x="1093" y="530" text-anchor="middle">모델은 서버 밖</text>
   <path d="M820,202 C920,202 950,262 1016,262" stroke="#8ECDF5" stroke-width="2" fill="none" marker-end="url(#arr)"/>
   <path class="later" d="M820,482 C920,482 950,452 1016,452" marker-end="url(#arrLater)"/>

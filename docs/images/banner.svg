@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="santacut-infra: 크리스마스 서비스 산타컷의 AWS 인프라. 12/31 시즌 종료까지 D-45(2026-11-16 기준)">
-  <title>santacut-infra: 크리스마스 서비스 산타컷의 AWS 인프라. 12/31 시즌 종료까지 D-45(2026-11-16 기준)</title>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="santacut-infra: 크리스마스 서비스 산타컷의 AWS 인프라. 12/31 시즌 종료까지 D-44(2026-11-17 기준)">
+  <title>santacut-infra: 크리스마스 서비스 산타컷의 AWS 인프라. 12/31 시즌 종료까지 D-44(2026-11-17 기준)</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0C1B2E"/><stop offset="0.62" stop-color="#0B1D2D"/><stop offset="1" stop-color="#0B2422"/>
@@ -62,7 +62,7 @@
 
   <text x="64" y="146" font-size="64" font-weight="800" letter-spacing="-1.5">santacut-infra</text>
   <text x="64" y="192" font-size="22" font-weight="500" fill="#B4C4D8">크리스마스 서비스 산타컷의 AWS 인프라. Terraform으로 관리한다.</text>
-  <rect x="64" y="236" width="164" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="84" cy="255" r="5" fill="#E9B949"/><text x="97" y="261" font-size="15" font-weight="600" fill="#F5F8FC">Terraform 1.17</text><rect x="240" y="236" width="156" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="260" cy="255" r="5" fill="#FF7A93"/><text x="273" y="261" font-size="15" font-weight="600" fill="#F5F8FC">AWS Lightsail</text><rect x="408" y="236" width="190" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="428" cy="255" r="5" fill="#8ECDF5"/><text x="441" y="261" font-size="15" font-weight="600" fill="#F5F8FC">Gemini 2.5 Flash</text><rect x="610" y="236" width="139" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="630" cy="255" r="5" fill="#4CC38A"/><text x="643" y="261" font-size="15" font-weight="600" fill="#F5F8FC">GitHub OIDC</text>
+  <rect x="64" y="236" width="164" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="84" cy="255" r="5" fill="#E9B949"/><text x="97" y="261" font-size="15" font-weight="600" fill="#F5F8FC">Terraform 1.17</text><rect x="240" y="236" width="156" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="260" cy="255" r="5" fill="#FF7A93"/><text x="273" y="261" font-size="15" font-weight="600" fill="#F5F8FC">AWS Lightsail</text><rect x="408" y="236" width="230" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="428" cy="255" r="5" fill="#8ECDF5"/><text x="441" y="261" font-size="15" font-weight="600" fill="#F5F8FC">Gemini 3.5 Flash-Lite</text><rect x="650" y="236" width="139" height="38" rx="19" fill="#12263F" stroke="#2B4A70"/><circle cx="670" cy="255" r="5" fill="#4CC38A"/><text x="683" y="261" font-size="15" font-weight="600" fill="#F5F8FC">GitHub OIDC</text>
 
   <!-- ribbon and gift tag (static D-day) -->
   <path d="M1086,0 H1116 V128 L1101,117 L1086,128 z" fill="#B5123E"/>
@@ -71,8 +71,8 @@
   <g transform="translate(1099,160) rotate(-5)">
     <path d="M-62,16 L-46,0 H46 L62,16 V104 A6,6 0 0 1 56,110 H-56 A6,6 0 0 1 -62,104 z" fill="#F5F8FC"/>
     <circle cx="0" cy="13" r="4.5" fill="#0C1B2E"/>
-    <text x="0" y="60" text-anchor="middle" font-size="38" font-weight="800" fill="#B5123E" letter-spacing="-1">D-45</text>
+    <text x="0" y="60" text-anchor="middle" font-size="38" font-weight="800" fill="#B5123E" letter-spacing="-1">D-44</text>
     <text x="0" y="82" text-anchor="middle" font-size="14" font-weight="700" fill="#0C1B2E">12/31 시즌 종료</text>
-    <text x="0" y="100" text-anchor="middle" font-size="12" fill="#3E5068">2026-11-16 기준</text>
+    <text x="0" y="100" text-anchor="middle" font-size="12" fill="#3E5068">2026-11-17 기준</text>
   </g>
 </svg>
