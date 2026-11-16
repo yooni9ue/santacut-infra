@@ -1,137 +1,167 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-label="산타컷 AWS 아키텍처">
-  <title>산타컷 AWS 아키텍처</title>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 760" width="1200" height="760" role="img" aria-label="산타컷 AWS 아키텍처. 지금은 dev 한 환경만 켜고, 도메인 없이 고정 IP로 HTTP 접속한다. Route 53과 main은 나중에 켠다">
+  <title>산타컷 AWS 아키텍처. 지금은 dev 한 환경만 켜고, 도메인 없이 고정 IP로 HTTP 접속한다. Route 53과 main은 나중에 켠다</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0B1426"/><stop offset="1" stop-color="#0F1F33"/>
+      <stop offset="0" stop-color="#0C1B2E"/><stop offset="0.62" stop-color="#0B1D2D"/><stop offset="1" stop-color="#0B2422"/>
     </linearGradient>
-    <linearGradient id="main" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#FF5A5F" stop-opacity="0.16"/><stop offset="1" stop-color="#FF5A5F" stop-opacity="0.03"/>
-    </linearGradient>
-    <linearGradient id="dev" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#3DDC97" stop-opacity="0.16"/><stop offset="1" stop-color="#3DDC97" stop-opacity="0.03"/>
-    </linearGradient>
-    <linearGradient id="ai" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7C6CFF"/><stop offset="1" stop-color="#3E8BFF"/>
-    </linearGradient>
-    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#8FB4D9"/>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#B4C4D8"/>
     </marker>
-    <marker id="arrAi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M0,0 L10,5 L0,10 z" fill="#9C8CFF"/>
+    <marker id="arrLater" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8DA3BE"/>
     </marker>
+    <symbol id="flake" viewBox="-10 -10 20 20" overflow="visible"><g fill="none" stroke-width="1.3" stroke-linecap="round"><g transform="rotate(0)"><path d="M0,-9 V9"/><path d="M-2.6,-7.4 L0,-5 L2.6,-7.4"/><path d="M-2.6,7.4 L0,5 L2.6,7.4"/></g><g transform="rotate(60)"><path d="M0,-9 V9"/><path d="M-2.6,-7.4 L0,-5 L2.6,-7.4"/><path d="M-2.6,7.4 L0,5 L2.6,7.4"/></g><g transform="rotate(120)"><path d="M0,-9 V9"/><path d="M-2.6,-7.4 L0,-5 L2.6,-7.4"/><path d="M-2.6,7.4 L0,5 L2.6,7.4"/></g></g></symbol>
+    
     <style>
-      text { font-family: Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Segoe UI', sans-serif; fill: #E6EDF7; }
-      .card { fill: #16233B; stroke: #2A3B5A; stroke-width: 1.5; }
-      .inner { fill: #1D2D49; stroke: #33476B; stroke-width: 1; }
+      text { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Segoe UI', system-ui, sans-serif; }
+      text:not([fill]) { fill: #F5F8FC; }
+      .card { fill: #12263F; stroke: #1E3A5C; stroke-width: 1.5; }
+      .inner { fill: #183152; stroke: #2B4A70; stroke-width: 1; }
+      .ghost { fill: #0C1B2E; stroke: #8DA3BE; stroke-width: 1.5; stroke-dasharray: 6 5; }
       .h { font-size: 17px; font-weight: 700; }
-      .s { font-size: 14px; fill: #A9BAD3; }
-      .xs { font-size: 14px; fill: #8FA3BF; }
-      .line { stroke: #8FB4D9; stroke-width: 2; fill: none; }
-      .ailine { stroke: #9C8CFF; stroke-width: 2; fill: none; stroke-dasharray: 6 5; }
+      .s { font-size: 14px; fill: #B4C4D8; }
+      .xs { font-size: 14px; fill: #B4C4D8; }
+      .code { font-family: ui-monospace, 'SF Mono', 'D2Coding', Consolas, 'Liberation Mono', monospace; font-size: 14px; fill: #8ECDF5; }
+      .line { stroke: #B4C4D8; stroke-width: 2; fill: none; }
+      .later { stroke: #8DA3BE; stroke-width: 2; fill: none; stroke-dasharray: 6 5; }
+      
     </style>
-    <g id="lane">
-      <!-- 고정 IP -->
-      <rect class="card" x="0" y="55" width="118" height="110" rx="14"/>
-      <circle cx="59" cy="92" r="14" fill="none" stroke="#F5B83D" stroke-width="3"/>
-      <circle cx="59" cy="92" r="4" fill="#F5B83D"/>
-      <text class="h" x="59" y="132" text-anchor="middle">고정 IP</text>
-      <text class="xs" x="59" y="152" text-anchor="middle">IPv4 전용</text>
-      <path class="line" d="M118,110 H142" marker-end="url(#arr)"/>
-      <!-- 인스턴스 -->
-      <rect class="card" x="146" y="22" width="290" height="176" rx="16"/>
-      <rect x="146" y="22" width="290" height="36" rx="16" fill="#FF9900" fill-opacity="0.14"/>
-      <text class="h" x="164" y="46">Lightsail 인스턴스</text>
-      <text class="xs" x="424" y="46" text-anchor="end">512MB · 2 vCPU</text>
-      <rect class="inner" x="162" y="70" width="108" height="52" rx="10"/>
-      <text class="h" x="216" y="93" text-anchor="middle">Caddy</text>
-      <text class="xs" x="216" y="112" text-anchor="middle">TLS 종료</text>
-      <path class="line" d="M270,96 H290" marker-end="url(#arr)"/>
-      <rect class="inner" x="294" y="70" width="126" height="52" rx="10"/>
-      <text class="h" x="357" y="93" text-anchor="middle">Spring Boot</text>
-      <text class="xs" x="357" y="112" text-anchor="middle">Docker Compose</text>
-      <rect class="inner" x="162" y="134" width="258" height="50" rx="10"/>
-      <g transform="translate(180,145)">
-        <ellipse cx="11" cy="4" rx="11" ry="4" fill="#5CC8FF"/>
-        <path d="M0,4 V24 A11,4 0 0 0 22,24 V4" fill="#5CC8FF" fill-opacity="0.55"/>
-      </g>
-      <text class="h" x="214" y="156">SQLite</text>
-      <text class="xs" x="214" y="175">디스크 · 매일 03:00 스냅숏</text>
-      <path class="line" d="M420,165 H468" marker-end="url(#arr)"/>
-      <!-- S3 백업 -->
-      <rect class="card" x="472" y="112" width="124" height="86" rx="14"/>
-      <path d="M492,130 h20 l-3,22 h-14 z" fill="#3DDC97"/>
-      <text class="h" x="520" y="146">S3 백업</text>
-      <text class="xs" x="534" y="172" text-anchor="middle">SSE-KMS 암호화</text>
-      <text class="xs" x="534" y="190" text-anchor="middle">최대 21일 보관</text>
-    </g>
   </defs>
+  <rect width="1200" height="760" rx="24" fill="url(#bg)"/>
+  <path d="M0,736 Q300,720 600,732 T1200,730 V736 A24,24 0 0 1 1176,760 H24 A24,24 0 0 1 0,736 z" fill="#F5F8FC" opacity="0.05"/>
+  <g fill="#F5F8FC"><circle cx="1150" cy="98" r="1.6" opacity="0.4"/><circle cx="1176" cy="132" r="1.1" opacity="0.3"/><circle cx="30" cy="250" r="1.3" opacity="0.3"/><circle cx="24" cy="560" r="1.6" opacity="0.35"/><circle cx="172" cy="600" r="1.2" opacity="0.3"/></g>
+  <path d="M40,0 H64 V56 L52,47 L40,56 z" fill="#B5123E"/>
+  <path d="M43.5,0 V50 M60.5,0 V50" stroke="#E9B949" stroke-width="1" opacity="0.75"/>
+  <text x="82" y="48" font-size="28" font-weight="800">아키텍처</text>
+  <text x="1160" y="48" text-anchor="end" font-size="16" fill="#B4C4D8">AWS 계정 1개, 서울 리전, 환경마다 인스턴스 1대</text>
+  <!-- legend -->
+  <g transform="translate(82,86)">
+    <path d="M0,0 H34" class="line"/><text class="xs" x="44" y="5">지금 켜 있음</text>
+    <path d="M150,0 H184" class="later"/><text class="xs" x="194" y="5">나중에 켬(도메인, MAIN_ENABLED)</text>
+  </g>
+  <use href="#flake" xlink:href="#flake" x="1124" y="76" width="16" height="16" stroke="#F5F8FC" opacity="0.3"/>
 
-  <rect width="1200" height="720" rx="24" fill="url(#bg)"/>
-  <text x="40" y="56" font-size="28" font-weight="800">아키텍처</text>
-  <text x="166" y="56" class="s" font-size="16">AWS 계정 1개 · 서울 리전 · 환경마다 인스턴스 1대</text>
+  <!-- user -->
+  <rect class="card" x="40" y="330" width="124" height="124" rx="16"/>
+  <circle cx="102" cy="370" r="14" fill="#F5F8FC"/>
+  <path d="M76,414 a26,22 0 0 1 52,0 z" fill="#F5F8FC"/>
+  <text class="h" x="102" y="440" text-anchor="middle">사용자</text>
 
-  <!-- 사용자 -->
-  <rect class="card" x="40" y="300" width="124" height="124" rx="16"/>
-  <circle cx="102" cy="340" r="14" fill="#E6EDF7"/>
-  <path d="M76,384 a26,22 0 0 1 52,0 z" fill="#E6EDF7"/>
-  <text class="h" x="102" y="410" text-anchor="middle">사용자</text>
-  <path class="line" d="M164,362 H196" marker-end="url(#arr)"/>
+  <!-- now: straight to the dev static IP over HTTP -->
+  <path class="line" d="M102,330 V270 Q102,252 120,252 H378" marker-end="url(#arr)"/>
+  <rect x="150" y="224" width="176" height="24" rx="12" fill="#0E3328"/>
+  <text x="238" y="241" text-anchor="middle" font-size="13" font-weight="700" fill="#4CC38A">지금: 고정 IP로 HTTP</text>
 
-  <!-- Route 53 -->
-  <rect class="card" x="200" y="300" width="136" height="124" rx="16"/>
-  <circle cx="268" cy="345" r="22" fill="none" stroke="#8C6CFF" stroke-width="3"/>
-  <ellipse cx="268" cy="345" rx="9" ry="22" fill="none" stroke="#8C6CFF" stroke-width="2"/>
-  <path d="M246,345 H290" stroke="#8C6CFF" stroke-width="2"/>
-  <text class="h" x="268" y="392" text-anchor="middle">Route 53</text>
-  <text class="xs" x="268" y="411" text-anchor="middle">A 레코드</text>
-  <path class="line" d="M336,345 C356,345 356,232 380,232" marker-end="url(#arr)"/>
-  <path class="line" d="M336,380 C356,380 356,512 380,512" marker-end="url(#arr)"/>
+  <!-- later: Route 53 -->
+  <path class="later" d="M164,420 H196" marker-end="url(#arrLater)"/>
+  <rect class="ghost" x="200" y="352" width="136" height="124" rx="16"/>
+  <circle cx="268" cy="394" r="20" fill="none" stroke="#8ECDF5" stroke-width="2.5"/>
+  <ellipse cx="268" cy="394" rx="8" ry="20" fill="none" stroke="#8ECDF5" stroke-width="1.8"/>
+  <path d="M248,394 H288" stroke="#8ECDF5" stroke-width="1.8"/>
+  <text class="h" x="268" y="440" text-anchor="middle">Route 53</text>
+  <text class="xs" x="268" y="461" text-anchor="middle">도메인을 산 뒤</text>
+  <path class="later" d="M336,380 C358,380 356,284 378,284" marker-end="url(#arrLater)"/>
+  <path class="later" d="M336,440 C358,440 356,562 378,562" marker-end="url(#arrLater)"/>
 
-  <!-- main 레인 -->
-  <rect x="368" y="90" width="620" height="248" rx="20" fill="url(#main)" stroke="#FF5A5F" stroke-opacity="0.45"/>
-  <rect x="388" y="104" width="64" height="26" rx="13" fill="#FF5A5F"/>
-  <text x="420" y="122" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">main</text>
-  <text class="s" x="462" y="122">운영 · 도메인 루트 · 승인 후 적용</text>
-  <use href="#lane" x="384" y="122"/>
+  <!-- dev lane: on -->
+  <rect x="368" y="110" width="620" height="252" rx="20" fill="#0E3328" fill-opacity="0.55" stroke="#4CC38A" stroke-opacity="0.6"/>
+  <rect x="388" y="124" width="54" height="26" rx="13" fill="#4CC38A"/>
+  <text x="415" y="142" text-anchor="middle" font-size="15" font-weight="800" fill="#08121F">dev</text>
+  <text class="s" x="454" y="142">지금 켜 있는 환경. 병합하면 바로 적용</text>
+  <g>
+    <rect class="card" x="384" y="197" width="118" height="110" rx="14"/>
+    <circle cx="443" cy="234" r="14" fill="none" stroke="#E9B949" stroke-width="3"/>
+    <circle cx="443" cy="234" r="4" fill="#E9B949"/>
+    <text class="h" x="443" y="274" text-anchor="middle">고정 IP</text>
+    <text class="xs" x="443" y="294" text-anchor="middle">IPv4 전용</text>
+    <path class="line" d="M502,252 H526" marker-end="url(#arr)"/>
+    <rect class="card" x="530" y="164" width="290" height="176" rx="16"/>
+    <text class="h" x="548" y="190">Lightsail 인스턴스</text>
+    <text class="xs" x="808" y="190" text-anchor="end">nano_3_0, 512MB</text>
+    <rect class="inner" x="546" y="206" width="108" height="58" rx="10"/>
+    <text class="h" x="600" y="231" text-anchor="middle">Caddy</text>
+    <text class="xs" x="600" y="252" text-anchor="middle">지금 HTTP :80</text>
+    <path class="line" d="M654,235 H674" marker-end="url(#arr)"/>
+    <rect class="inner" x="678" y="206" width="126" height="58" rx="10"/>
+    <text class="h" x="741" y="231" text-anchor="middle">Spring Boot</text>
+    <text class="xs" x="741" y="252" text-anchor="middle">Docker Compose</text>
+    <rect class="inner" x="546" y="276" width="258" height="50" rx="10"/>
+    <g transform="translate(564,287)">
+      <ellipse cx="11" cy="4" rx="11" ry="4" fill="#8ECDF5"/>
+      <path d="M0,4 V24 A11,4 0 0 0 22,24 V4" fill="#8ECDF5" fill-opacity="0.55"/>
+    </g>
+    <text class="h" x="598" y="298">SQLite</text>
+    <text class="xs" x="598" y="317">디스크, 매일 03:00 스냅숏</text>
+    <path class="line" d="M804,307 H852" marker-end="url(#arr)"/>
+    <rect class="card" x="856" y="254" width="124" height="86" rx="14"/>
+    <path d="M874,270 h18 l-3,20 h-12 z" fill="#4CC38A"/>
+    <text class="h" x="900" y="286">S3 백업</text>
+    <text class="xs" x="918" y="312" text-anchor="middle">SSE-KMS 암호화</text>
+    <text class="xs" x="918" y="330" text-anchor="middle">최대 21일 보관</text>
+  </g>
 
-  <!-- dev 레인 -->
-  <rect x="368" y="370" width="620" height="248" rx="20" fill="url(#dev)" stroke="#3DDC97" stroke-opacity="0.45"/>
-  <rect x="388" y="384" width="54" height="26" rx="13" fill="#3DDC97"/>
-  <text x="415" y="402" text-anchor="middle" font-size="15" font-weight="800" fill="#0B1426">dev</text>
-  <text class="s" x="452" y="402">dev.도메인 · 병합 즉시 적용</text>
-  <use href="#lane" x="384" y="402"/>
+  <!-- main lane: off until MAIN_ENABLED=true -->
+  <rect x="368" y="390" width="620" height="252" rx="20" fill="#0C1B2E" fill-opacity="0.6" stroke="#FF7A93" stroke-opacity="0.55" stroke-dasharray="7 6"/>
+  <rect x="388" y="404" width="64" height="26" rx="13" fill="#B5123E"/>
+  <text x="420" y="422" text-anchor="middle" font-size="15" font-weight="800" fill="#F5F8FC">main</text>
+  <text class="s" x="464" y="422">운영. 승인 후 적용</text>
+  <rect x="742" y="404" width="230" height="26" rx="13" fill="none" stroke="#E9B949" stroke-opacity="0.8"/>
+  <text x="857" y="422" text-anchor="middle" font-size="13" font-weight="700" fill="#F7DE9F">MAIN_ENABLED=true일 때 켠다</text>
+  <g>
+    <rect class="ghost" x="384" y="477" width="118" height="110" rx="14"/>
+    <circle cx="443" cy="514" r="14" fill="none" stroke="#E9B949" stroke-width="3"/>
+    <circle cx="443" cy="514" r="4" fill="#E9B949"/>
+    <text class="h" x="443" y="554" text-anchor="middle">고정 IP</text>
+    <text class="xs" x="443" y="574" text-anchor="middle">IPv4 전용</text>
+    <path class="later" d="M502,532 H526" marker-end="url(#arrLater)"/>
+    <rect class="ghost" x="530" y="444" width="290" height="176" rx="16"/>
+    <text class="h" x="548" y="470">Lightsail 인스턴스</text>
+    <text class="xs" x="808" y="470" text-anchor="end">nano_3_0, 512MB</text>
+    <rect class="inner" x="546" y="486" width="108" height="58" rx="10"/>
+    <text class="h" x="600" y="511" text-anchor="middle">Caddy</text>
+    <text class="xs" x="600" y="532" text-anchor="middle">TLS 종료</text>
+    <path class="line" d="M654,515 H674" marker-end="url(#arr)"/>
+    <rect class="inner" x="678" y="486" width="126" height="58" rx="10"/>
+    <text class="h" x="741" y="511" text-anchor="middle">Spring Boot</text>
+    <text class="xs" x="741" y="532" text-anchor="middle">Docker Compose</text>
+    <rect class="inner" x="546" y="556" width="258" height="50" rx="10"/>
+    <g transform="translate(564,567)">
+      <ellipse cx="11" cy="4" rx="11" ry="4" fill="#8ECDF5"/>
+      <path d="M0,4 V24 A11,4 0 0 0 22,24 V4" fill="#8ECDF5" fill-opacity="0.55"/>
+    </g>
+    <text class="h" x="598" y="578">SQLite</text>
+    <text class="xs" x="598" y="597">디스크, 매일 03:00 스냅숏</text>
+    <path class="later" d="M804,587 H852" marker-end="url(#arrLater)"/>
+    <rect class="ghost" x="856" y="534" width="124" height="86" rx="14"/>
+    <path d="M874,550 h18 l-3,20 h-12 z" fill="#4CC38A"/>
+    <text class="h" x="900" y="566">S3 백업</text>
+    <text class="xs" x="918" y="592" text-anchor="middle">SSE-KMS 암호화</text>
+    <text class="xs" x="918" y="610" text-anchor="middle">최대 21일 보관</text>
+  </g>
 
   <!-- Bedrock -->
-  <rect x="1020" y="160" width="146" height="390" rx="18" fill="url(#ai)" fill-opacity="0.18" stroke="#9C8CFF" stroke-width="1.5"/>
-  <g transform="translate(1093,236)">
-    <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15" fill="url(#ai)"/>
-    <path d="M0,-14 L4,-4 L14,0 L4,4 L0,14 L-4,4 L-14,0 L-4,-4 z" fill="#FFFFFF"/>
+  <rect x="1020" y="150" width="146" height="480" rx="18" fill="#8ECDF5" fill-opacity="0.08" stroke="#8ECDF5" stroke-opacity="0.7" stroke-width="1.5"/>
+  <g transform="translate(1093,232)">
+    <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15" fill="#8ECDF5"/>
+    <path d="M0,-14 L4,-4 L14,0 L4,4 L0,14 L-4,4 L-14,0 L-4,-4 z" fill="#0C1B2E"/>
   </g>
-  <text class="h" x="1093" y="300" text-anchor="middle">Amazon</text>
-  <text class="h" x="1093" y="322" text-anchor="middle">Bedrock</text>
-  <text class="s" x="1093" y="356" text-anchor="middle">Claude</text>
-  <text class="s" x="1093" y="376" text-anchor="middle">Haiku 5.5</text>
-  <rect x="1040" y="400" width="106" height="28" rx="14" fill="#9C8CFF" fill-opacity="0.25"/>
-  <text x="1093" y="419" text-anchor="middle" font-size="14" font-weight="700">Global 추론</text>
+  <text class="h" x="1093" y="296" text-anchor="middle">Amazon</text>
+  <text class="h" x="1093" y="318" text-anchor="middle">Bedrock</text>
+  <text class="s" x="1093" y="352" text-anchor="middle">Claude</text>
+  <text class="s" x="1093" y="372" text-anchor="middle">Haiku 5.5</text>
+  <rect x="1038" y="396" width="110" height="28" rx="14" fill="#8ECDF5" fill-opacity="0.18"/>
+  <text x="1093" y="415" text-anchor="middle" font-size="14" font-weight="700" fill="#8ECDF5">Global 추론</text>
   <text class="xs" x="1093" y="460" text-anchor="middle">비스트리밍</text>
   <text class="xs" x="1093" y="480" text-anchor="middle">Converse 호출</text>
-  <text class="xs" x="1093" y="520" text-anchor="middle">모델은 서버 밖</text>
-  <path class="ailine" d="M820,190 C920,190 950,236 1016,236" marker-end="url(#arrAi)"/>
-  <path class="ailine" d="M820,470 C920,470 950,470 1016,470" marker-end="url(#arrAi)"/>
+  <text class="xs" x="1093" y="530" text-anchor="middle">모델은 서버 밖</text>
+  <path d="M820,202 C920,202 950,262 1016,262" stroke="#8ECDF5" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+  <path class="later" d="M820,482 C920,482 950,452 1016,452" marker-end="url(#arrLater)"/>
 
-  <!-- 하단 공용 리소스 -->
-  <g transform="translate(40,644)">
-    <rect class="card" width="360" height="52" rx="14"/>
-    <rect x="16" y="16" width="20" height="20" rx="5" fill="#5CC8FF"/>
-    <text x="48" y="32" font-size="15" font-weight="700">Terraform 상태</text>
-    <text class="xs" x="166" y="32">S3 · 네이티브 잠금 · 버전</text>
-    <rect class="card" x="376" width="380" height="52" rx="14"/>
-    <rect x="392" y="16" width="20" height="20" rx="10" fill="#E6EDF7"/>
-    <text x="424" y="32" font-size="15" font-weight="700">GitHub Actions</text>
-    <text class="xs" x="546" y="32">OIDC 역할 · 장기 키 없음</text>
-    <rect class="card" x="772" width="348" height="52" rx="14"/>
-    <rect x="788" y="16" width="20" height="20" rx="5" fill="#F5B83D"/>
-    <text x="820" y="32" font-size="15" font-weight="700">예산 알림</text>
-    <text class="xs" x="902" y="32">계정 20 USD · Bedrock 10 USD</text>
+  <!-- shared resources -->
+  <g transform="translate(40,666)">
+    <rect class="card" x="0" width="268" height="64" rx="14"/><rect x="18" y="22" width="20" height="20" rx="5" fill="#E9B949"/><text x="52" y="27" font-size="15" font-weight="700">Terraform 상태</text><text class="xs" x="52" y="49">S3, 네이티브 잠금, 버전 관리</text>
+    <rect class="card" x="284" width="268" height="64" rx="14"/><circle cx="312" cy="32" r="10" fill="#F5F8FC"/><text x="336" y="27" font-size="15" font-weight="700">GitHub Actions</text><text class="xs" x="336" y="49">OIDC 역할, 장기 키 없음</text>
+    <rect class="card" x="568" width="268" height="64" rx="14"/><rect x="586" y="22" width="20" height="20" rx="5" fill="#FF7A93"/><text x="620" y="27" font-size="15" font-weight="700">KMS 키</text><text class="xs" x="620" y="49">환경마다 1개, 자동 교체</text>
+    <rect class="card" x="852" width="268" height="64" rx="14"/><rect x="870" y="22" width="20" height="20" rx="5" fill="#4CC38A"/><text x="904" y="27" font-size="15" font-weight="700">예산 알림</text><text class="xs" x="904" y="49">계정 20 USD, Bedrock 10 USD</text>
   </g>
 </svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 44" width="1200" height="44" role="img" aria-label="눈송이와 별 장식 구분선">
+  <title>눈송이와 별 장식 구분선</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0C1B2E"/><stop offset="0.62" stop-color="#0B1D2D"/><stop offset="1" stop-color="#0B2422"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#B4C4D8"/>
+    </marker>
+    <marker id="arrLater" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8DA3BE"/>
+    </marker>
+    <symbol id="flake" viewBox="-10 -10 20 20" overflow="visible"><g fill="none" stroke-width="1.3" stroke-linecap="round"><g transform="rotate(0)"><path d="M0,-9 V9"/><path d="M-2.6,-7.4 L0,-5 L2.6,-7.4"/><path d="M-2.6,7.4 L0,5 L2.6,7.4"/></g><g transform="rotate(60)"><path d="M0,-9 V9"/><path d="M-2.6,-7.4 L0,-5 L2.6,-7.4"/><path d="M-2.6,7.4 L0,5 L2.6,7.4"/></g><g transform="rotate(120)"><path d="M0,-9 V9"/><path d="M-2.6,-7.4 L0,-5 L2.6,-7.4"/><path d="M-2.6,7.4 L0,5 L2.6,7.4"/></g></g></symbol>
+    
+    <style>
+      text { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Segoe UI', system-ui, sans-serif; }
+      text:not([fill]) { fill: #F5F8FC; }
+      .card { fill: #12263F; stroke: #1E3A5C; stroke-width: 1.5; }
+      .inner { fill: #183152; stroke: #2B4A70; stroke-width: 1; }
+      .ghost { fill: #0C1B2E; stroke: #8DA3BE; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .h { font-size: 17px; font-weight: 700; }
+      .s { font-size: 14px; fill: #B4C4D8; }
+      .xs { font-size: 14px; fill: #B4C4D8; }
+      .code { font-family: ui-monospace, 'SF Mono', 'D2Coding', Consolas, 'Liberation Mono', monospace; font-size: 14px; fill: #8ECDF5; }
+      .line { stroke: #B4C4D8; stroke-width: 2; fill: none; }
+      .later { stroke: #8DA3BE; stroke-width: 2; fill: none; stroke-dasharray: 6 5; }
+      
+    </style>
+  </defs>
+  <rect width="1200" height="44" rx="22" fill="#0C1B2E"/>
+  <g fill="#F5F8FC"><circle cx="44" cy="11" r="1.1" opacity="0.46"/><circle cx="188" cy="11" r="1.0" opacity="0.48"/><circle cx="198" cy="29" r="1.3" opacity="0.29"/><circle cx="641" cy="21" r="1.1" opacity="0.55"/><circle cx="136" cy="9" r="1.6" opacity="0.37"/><circle cx="256" cy="17" r="1.1" opacity="0.54"/><circle cx="270" cy="14" r="1.3" opacity="0.41"/><circle cx="1117" cy="31" r="1.1" opacity="0.31"/><circle cx="984" cy="36" r="0.8" opacity="0.47"/><circle cx="1020" cy="26" r="1.0" opacity="0.49"/><circle cx="862" cy="13" r="1.3" opacity="0.32"/><circle cx="77" cy="17" r="1.1" opacity="0.37"/><circle cx="767" cy="31" r="1.6" opacity="0.54"/><circle cx="1163" cy="30" r="1.0" opacity="0.30"/><circle cx="741" cy="23" r="1.3" opacity="0.28"/><circle cx="250" cy="34" r="1.3" opacity="0.46"/><circle cx="139" cy="19" r="1.5" opacity="0.44"/><circle cx="1160" cy="14" r="1.2" opacity="0.49"/><circle cx="537" cy="30" r="1.2" opacity="0.29"/><circle cx="143" cy="36" r="0.9" opacity="0.31"/><circle cx="412" cy="28" r="1.5" opacity="0.39"/><circle cx="598" cy="30" r="1.0" opacity="0.36"/><circle cx="729" cy="26" r="0.8" opacity="0.28"/><circle cx="187" cy="28" r="1.4" opacity="0.54"/><circle cx="905" cy="15" r="1.4" opacity="0.55"/><circle cx="428" cy="8" r="1.1" opacity="0.33"/><circle cx="231" cy="9" r="0.9" opacity="0.51"/><circle cx="87" cy="25" r="1.0" opacity="0.31"/><circle cx="966" cy="16" r="0.9" opacity="0.39"/><circle cx="822" cy="23" r="1.5" opacity="0.37"/><circle cx="627" cy="28" r="1.2" opacity="0.47"/><circle cx="562" cy="12" r="0.9" opacity="0.48"/><circle cx="879" cy="34" r="1.4" opacity="0.42"/><circle cx="219" cy="32" r="0.9" opacity="0.38"/></g>
+  <path d="M60,22 H560 M640,22 H1140" stroke="#E9B949" stroke-opacity="0.55" stroke-width="1"/>
+  <use href="#flake" xlink:href="#flake" x="574" y="16" width="12" height="12" stroke="#F5F8FC" opacity="0.5"/>
+  <use href="#flake" xlink:href="#flake" x="614" y="16" width="12" height="12" stroke="#F5F8FC" opacity="0.5"/>
+  <g transform="translate(600,22)" fill="#E9B949">
+    <path d="M0,-13 C1,-3 3,-1 13,0 C3,1 1,3 0,13 C-1,3 -3,1 -13,0 C-3,-1 -1,-3 0,-13 z"/>
+  </g>
+</svg>
