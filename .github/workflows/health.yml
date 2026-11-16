@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   check:
-    # 도메인과 역할을 설정하기 전에는 건너뛴다(docs/operations.md 4단계).
+    # 도메인과 역할을 설정하기 전에는 건너뛴다(docs/operations.md 4단계). main은 MAIN_ENABLED=true일 때만 본다.
     if: vars.DOMAIN_NAME != '' && vars.AWS_PLAN_ROLE_ARN != ''
     runs-on: ubuntu-latest
     strategy:
@@ -25,6 +25,9 @@ jobs:
         id: target
         run: |
           if [ "${{ matrix.env }}" = "dev" ] && [ "${{ vars.DEV_ENABLED }}" = "false" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ matrix.env }}" = "main" ] && [ "${{ vars.MAIN_ENABLED }}" != "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
           if [ "${{ matrix.env }}" = "dev" ]; then host="dev.${{ vars.DOMAIN_NAME }}"; else host="${{ vars.DOMAIN_NAME }}"; fi
