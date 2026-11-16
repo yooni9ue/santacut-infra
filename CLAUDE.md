@@ -22,7 +22,7 @@
 
 ## 구조와 브랜치 전략
 
-- `bootstrap/`: 계정에 한 번만 만드는 공용 리소스(상태 버킷, GitHub OIDC 역할, Route 53 호스팅 영역, 예산 알림). 로컬 상태로 한 번 적용한다.
+- `bootstrap/`: 계정에 한 번만 만드는 공용 리소스(상태 버킷, GitHub OIDC 역할, Route 53 호스팅 영역, 예산 알림). 처음에는 로컬 상태로 적용하고, 그 뒤 S3 상태(`bootstrap/backend.tf`)로 옮긴다.
 - `envs/dev`, `envs/main`: 두 환경을 디렉터리로 나란히 둔다. 각 디렉터리가 하나의 루트 모듈이고 원격 상태 키가 따로 있다. 운영 환경 이름은 `main`이다.
 - `modules/santacut_app/`: 두 환경이 같이 쓰는 모듈. 환경 디렉터리는 모듈을 조립하고 환경별 값만 가진다.
 - 브랜치는 `main` 하나만 쓴다(트렁크 기반). PR에서 두 환경 모두 `plan`하고, `main` 병합 후 `dev`에 먼저 적용한 다음 `main` 환경은 GitHub Environment 승인 후 적용한다. 환경별 브랜치를 만들지 않는다.

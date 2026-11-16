@@ -2,42 +2,56 @@
 
 처음 설정은 1~7단계를 순서대로 한 번 한다. 8단계부터는 필요할 때 찾아 쓴다.
 
+지금은 두 가지 절약 모드로 시작한다.
+
+- **dev만**: 운영(`main`) 잡은 레포 변수 `MAIN_ENABLED=true`일 때만 돈다. 켜는 방법은 12절에 있다.
+- **도메인 없음**: 도메인을 사기 전에는 `domain_name`을 비워 둔다. 접속은 고정 IP로 한다(2단계).
+
 ## 1. bootstrap (처음 한 번)
 
 준비물: 관리자 권한 AWS 자격 증명(로컬), Terraform 1.17.
 
+이 계정(466417120611)은 2026-11-16에 bootstrap을 적용했고, 상태는 S3 버킷 `santacut-tfstate-466417120611`에 있다. `backend.tf`도 커밋돼 있다. 다시 적용할 때는 아래처럼 한다.
+
 ```sh
 cd bootstrap
-cp terraform.tfvars.example terraform.tfvars   # 도메인, 예산, 알림 이메일을 채운다
-terraform init
+terraform init -backend-config="bucket=santacut-tfstate-466417120611"
 terraform apply
 ```
 
-상태 버킷은 이 스택이 만들기 때문에 첫 적용은 로컬 상태로 한다. 적용이 끝나면 바로 상태를 그 버킷으로 옮긴다.
+새 계정에 처음 적용할 때는 상태 버킷이 아직 없다. 순서는 다음과 같다.
 
-1. `bootstrap/backend.tf`를 아래 내용으로 만든다.
-
-   ```hcl
-   terraform {
-     backend "s3" {
-       key          = "bootstrap/terraform.tfstate"
-       region       = "ap-northeast-2"
-       encrypt      = true
-       use_lockfile = true
-     }
-   }
-   ```
-
-2. `terraform init -migrate-state -backend-config="bucket=<state_bucket 출력값>"`을 실행한다.
-3. 로컬 `terraform.tfstate*`를 지우고 `backend.tf`를 커밋한다.
+1. `backend.tf`를 잠시 다른 이름으로 옮긴다.
+2. `cp terraform.tfvars.example terraform.tfvars`로 예산과 알림 이메일을 채운다. 도메인은 산 뒤에 넣는다.
+3. `terraform init && terraform apply`로 로컬 상태에 적용한다.
+4. `backend.tf`를 되돌린다.
+5. `terraform init -migrate-state -backend-config="bucket=<state_bucket 출력값>"`을 실행한다.
+6. 로컬 `terraform.tfstate*`를 지운다.
 
 apply 역할은 `envs/<env>/*` 키에만 쓸 수 있어서 CI가 bootstrap 상태를 바꾸지 못한다. 이후 권한, 예산, OIDC 설정을 바꿀 때는 관리자가 로컬에서 `terraform init -backend-config="bucket=..."` 후 다시 적용한다.
 
-출력값은 다음 단계에서 쓴다: `state_bucket`, `name_servers`, `plan_role_arn`, `apply_role_arns`, `app_deploy_role_arns`.
+출력값은 다음 단계에서 쓴다: `state_bucket`, `name_servers`, `plan_role_arn`, `apply_role_arns`, `app_deploy_role_arns`. 도메인이 없으면 `zone_id`와 `name_servers`는 `null`이다.
 
-## 2. 가비아 네임서버 위임
+## 2. 도메인과 가비아 네임서버 위임
 
-가비아 도메인 관리 → 네임서버 설정에서 `name_servers` 출력값 4개를 등록한다. 반영까지 최대 하루가 걸릴 수 있다. `dig NS <도메인>`으로 확인한다.
+### 도메인 없이 쓰기
+
+- `domain_name`을 비워 두면 Route 53 호스팅 영역과 A 레코드를 만들지 않는다. 비용은 0이다.
+- 레포 변수 `DOMAIN_NAME`도 비워 둔다. CI가 빈 문자열을 넘겨도 도메인 없음으로 처리한다.
+- 접속 주소는 각 환경 출력값 `app_url`이다. `http://<static_ip>` 형식이다.
+- Caddy는 도메인이 있어야 TLS 인증서를 받는다. 그전에는 HTTP로만 접속한다. 앱 레포 Caddyfile을 HTTP 주소(`:80`)로 맞춘다.
+- HTTP는 암호화되지 않는다. 실제 사용자 데이터는 도메인과 TLS를 갖춘 뒤 받는다.
+- 상태 확인 워크플로(`health.yml`)는 `DOMAIN_NAME`이 비어 있으면 건너뛴다.
+
+### 도메인을 산 뒤
+
+코드는 고치지 않는다. 값만 넣고 다시 적용한다.
+
+1. `bootstrap/terraform.tfvars`에 `domain_name`을 넣고 bootstrap을 다시 적용한다. 호스팅 영역이 생기고 apply 역할에 레코드 권한이 붙는다.
+2. 가비아 도메인 관리 → 네임서버 설정에서 `name_servers` 출력값 4개를 등록한다. 반영까지 최대 하루가 걸릴 수 있다. `dig NS <도메인>`으로 확인한다.
+3. 레포 변수 `DOMAIN_NAME`에 같은 도메인을 넣는다.
+4. `workflow_dispatch`로 terraform 워크플로를 돌리거나 PR을 병합한다. dev의 A 레코드(`dev.<도메인>`)가 생긴다.
+5. 인스턴스 `.env`의 `DOMAIN`, `ACME_EMAIL`을 채우고 Caddyfile을 도메인 주소로 되돌린 뒤 앱을 다시 띄운다(6단계).
 
 ## 3. Bedrock 모델 활성화
 
@@ -93,11 +107,12 @@ Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개�
 | --- | --- |
 | `TF_STATE_BUCKET` | bootstrap `state_bucket` |
 | `AWS_PLAN_ROLE_ARN` | bootstrap `plan_role_arn` |
-| `DOMAIN_NAME` | 서비스 도메인 |
+| `DOMAIN_NAME` | 서비스 도메인. 도메인을 사기 전에는 비워 둔다 |
 | `SSH_PUBLIC_KEY` | 배포용 SSH 공개 키 |
 | `SSH_ALLOWED_CIDRS` | HCL 목록 형식, /24 이상, 예: `["203.0.113.10/32"]` |
 | `BEDROCK_MODEL_ID` | 3단계의 기반 모델 ID(`anthropic.`으로 시작) |
 | `DEV_ENABLED` | 평소에는 비워 둔다. dev를 내렸을 때만 `false` |
+| `MAIN_ENABLED` | 운영을 켤 때만 `true`. 비우면 dev만 plan·적용한다(12절) |
 | `HEALTH_PATH` | 상태 확인 경로. 비우면 `/v3/api-docs` |
 
 ### Environment 두 개 (Settings → Environments)
@@ -105,7 +120,7 @@ Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개�
 두 Environment 모두 **배포 브랜치를 `main`으로 제한**한다. 제한이 없으면 아무 브랜치에서나 apply 역할을 맡을 수 있다.
 
 - `dev`: 변수 `AWS_APPLY_ROLE_ARN` = `apply_role_arns.dev`
-- `main`: 변수 `AWS_APPLY_ROLE_ARN` = `apply_role_arns.main`, **Required reviewers**에 운영 승인자를 넣는다.
+- `main`: 변수 `AWS_APPLY_ROLE_ARN` = `apply_role_arns.main`, **Required reviewers**에 운영 승인자를 넣는다. `MAIN_ENABLED`를 켜기 전에 만들면 된다.
 
 승인자는 같은 실행의 `plan-main` 잡 실행 요약에 있는 plan을 보고 승인한다. 승인하면 그 plan이 그대로 적용된다. 승인 대기가 오래된 실행은 거절하고, 새 실행으로 진행한다.
 
@@ -129,7 +144,7 @@ dev와 main이 같은 계정이라 환경 분리는 이름 접두사와 `Environ
 
 ## 5. 환경 적용과 첫 부팅 확인
 
-PR을 병합하면 CI가 dev를 적용하고, 운영 plan을 만든 뒤 승인을 받아 main을 적용한다. 로컬에서 직접 적용할 때:
+PR을 병합하면 CI가 dev를 적용한다. `MAIN_ENABLED=true`이면 운영 plan을 만든 뒤 승인을 받아 main도 적용한다. 로컬에서 직접 적용할 때:
 
 ```sh
 cd envs/dev
@@ -148,6 +163,8 @@ cloud-init status --wait                 # status: done
 tail -n 5 /var/log/santacut-init.log     # 마지막 줄: santacut-init: OK
 docker compose version
 ls -ld /opt/santacut/releases /opt/santacut/backups
+swapon --show                            # /swapfile 1G
+free -m
 ```
 
 방화벽도 확인한다. IPv6 규칙이 없어야 한다.
@@ -190,6 +207,14 @@ AWS_SECRET_ACCESS_KEY=...
 # 비스트리밍 호출(bedrock-runtime Converse, InvokeModel)만 허용된다.
 BEDROCK_MODEL_ID=global.anthropic.claude-haiku-5-5-...
 ```
+
+### 512MB 번들의 메모리
+
+기본 번들 `nano_3_0`은 메모리가 512MB다. Caddy와 Spring을 함께 돌리기에 빠듯하다.
+
+- 첫 부팅 스크립트가 1GB 스왑(`/swapfile`)을 만들고 `vm.swappiness=10`으로 둔다. 스왑은 비상용이다.
+- JVM 힙을 반드시 제한한다. 예: `JAVA_TOOL_OPTIONS=-Xmx256m` 또는 `-XX:MaxRAMPercentage=50`. 넘기는 방법은 앱 레포 Compose에 맞춘다.
+- 컨테이너가 OOM으로 죽거나 응답이 느려지면 사양을 올린다. `bundle_id`를 바꾸고 9절의 인스턴스 교체 절차를 따른다.
 
 ### `/opt/santacut/backup.env` (권한 600, 소유자 ubuntu)
 
@@ -256,7 +281,7 @@ sudo install -o ubuntu -g ubuntu -m 0750 /opt/santacut/current/scripts/backup.sh
 
 ### Lightsail 알람
 
-`aws_lightsail_*`에는 알람 리소스가 없어 CLI로 한 번 건다(알람 요금은 적용 전에 요금 페이지에서 확인한다). 연락처 등록 후 받은 **인증 메일의 링크를 눌러야** 알람이 발송된다.
+`aws_lightsail_*`에는 알람 리소스가 없어 CLI로 한 번 건다(알람 요금은 적용 전에 요금 페이지에서 확인한다). 연락처 등록 후 받은 **인증 메일의 링크를 눌러야** 알람이 발송된다. dev만 쓰는 동안은 아래 반복문에서 `main`을 뺀다.
 
 ```sh
 aws lightsail create-contact-method --protocol Email --contact-endpoint operator@example.com
@@ -376,7 +401,7 @@ done
    ```
 
 2. 그 이름으로 bootstrap 변수 `bedrock_cost_service_names`를 맞추고 다시 적용한다. 다음 날 `aws budgets describe-budget --account-id <계정> --budget-name santacut-bedrock --query Budget.CalculatedSpend.ActualSpend`가 0이 아닌지 확인한다.
-3. 2단계 확인이 끝난 뒤에만 `enable_bedrock_stop = true`로 다시 적용한다. 실제 비용이 100%를 넘으면 `bedrock_stop_environments`의 앱 사용자에게 `santacut-deny-bedrock` 정책이 자동으로 붙는다. 청구 데이터가 하루 늦게 반영되므로 1차 방어는 앱의 일일 토큰 한도다.
+3. 2단계 확인이 끝난 뒤에만 `enable_bedrock_stop = true`로 다시 적용한다. dev만 쓰는 동안은 main 앱 사용자가 없으므로 `bedrock_stop_environments = ["dev"]`도 함께 넣는다. 실제 비용이 100%를 넘으면 `bedrock_stop_environments`의 앱 사용자에게 `santacut-deny-bedrock` 정책이 자동으로 붙는다. 청구 데이터가 하루 늦게 반영되므로 1차 방어는 앱의 일일 토큰 한도다.
 4. 해제: 원인을 확인하고 예산을 올리거나 다음 달을 기다린 뒤 정책을 뗀다.
 
    ```sh
@@ -404,3 +429,16 @@ dev가 당분간 필요 없으면 아래 순서로 내린다. dev 데이터는 �
 6. `git checkout modules/santacut_app/main.tf`로 되돌린다.
 
 다시 올릴 때는 `DEV_ENABLED`를 지우고 `bedrock_stop_environments`를 되돌린 뒤 병합하거나 `workflow_dispatch`로 실행한다.
+
+## 12. 운영(main) 켜기
+
+처음에는 dev만 쓴다. 운영 잡(`plan-main`, `apply-main`, PR의 main plan)과 main 상태 확인은 `MAIN_ENABLED=true`일 때만 돈다.
+
+1. 4단계의 `main` Environment를 만들고 승인자를 건다.
+2. 운영 고정비만큼 bootstrap `monthly_budget_usd`를 올린다. README 비용 표에서 두 환경 금액을 확인한다.
+3. 레포 변수 `MAIN_ENABLED=true`를 넣는다.
+4. `workflow_dispatch`로 실행하거나 PR을 병합한다. dev 적용 뒤 운영 plan이 나오고, 승인하면 적용된다.
+5. `enable_bedrock_stop`을 켰다면 main 앱 사용자가 생긴 지금 `bedrock_stop_environments`를 `["dev", "main"]`으로 되돌리고 bootstrap을 다시 적용한다.
+6. 5~8단계의 첫 부팅 확인, 비밀값, 배포 연동, 알람을 main에도 한다.
+
+운영 도메인은 서비스 도메인 그 자체다. 도메인 없이 켜면 main도 고정 IP로 접속한다.

@@ -41,7 +41,7 @@
       <rect class="card" x="146" y="22" width="290" height="176" rx="16"/>
       <rect x="146" y="22" width="290" height="36" rx="16" fill="#FF9900" fill-opacity="0.14"/>
       <text class="h" x="164" y="46">Lightsail 인스턴스</text>
-      <text class="xs" x="424" y="46" text-anchor="end">2GB · 2 vCPU</text>
+      <text class="xs" x="424" y="46" text-anchor="end">512MB · 2 vCPU</text>
       <rect class="inner" x="162" y="70" width="108" height="52" rx="10"/>
       <text class="h" x="216" y="93" text-anchor="middle">Caddy</text>
       <text class="xs" x="216" y="112" text-anchor="middle">TLS 종료</text>
@@ -132,6 +132,6 @@
     <rect class="card" x="772" width="348" height="52" rx="14"/>
     <rect x="788" y="16" width="20" height="20" rx="5" fill="#F5B83D"/>
     <text x="820" y="32" font-size="15" font-weight="700">예산 알림</text>
-    <text class="xs" x="902" y="32">계정 40 USD · Bedrock 10 USD</text>
+    <text class="xs" x="902" y="32">계정 20 USD · Bedrock 10 USD</text>
   </g>
 </svg>
