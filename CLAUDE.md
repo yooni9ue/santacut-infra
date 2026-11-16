@@ -8,7 +8,7 @@
 | --- | --- |
 | 실행 | 환경마다 AWS Lightsail 인스턴스 한 대. 앱 레포의 Docker Compose(Caddy + Spring)와 `deploy.sh`를 그대로 쓴다 |
 | DB | SQLite 유지. 인스턴스 디스크에 두고 Lightsail 자동 스냅숏과 S3 백업(SSE-KMS)으로 지킨다 |
-| AI | Amazon Bedrock Claude Haiku 5.5(Global 교차 리전 추론). 서버에서 모델을 돌리지 않는다 |
+| AI | Google Gemini 2.5 Flash(2026-11-16 Bedrock에서 바꿈). 서버에서 모델을 돌리지 않는다. 키는 S3 `config/app.env`에 둔다 |
 | 분석 진행 | 폴링(GET 2~3초 간격). SSE를 쓰지 않는다 |
 | 계정 | dev와 main은 같은 AWS 계정에서 이름 접두사(`santacut-dev-`, `santacut-main-`)와 IAM 범위로 나눈다 |
 | 리전 | 서울(`ap-northeast-2`) |
@@ -18,7 +18,7 @@
 - 인스턴스는 환경마다 한 대만 둔다. 로드 밸런서, NAT 게이트웨이, 관리형 DB처럼 월 고정비가 드는 리소스를 더하려면 이유와 월 비용을 PR에 적는다.
 - 비밀값(액세스 키, `.env` 값)은 Terraform 코드와 상태, 레포, 워크플로에 넣지 않는다. 액세스 키는 사람이 발급해 인스턴스의 `/opt/santacut/aws/credentials`에 바로 쓴다. 앱 설정은 KMS로 암호화해 S3 `config/app.env`에 두고 부팅 때 tmpfs로 받는다(`docs/operations.md` 6절).
 - 프로젝트는 2026-12-31에 끝난다. 새 리소스는 짧은 수명과 깨끗한 철거(`docs/operations.md` 13절)를 기준으로 고른다.
-- Lightsail 인스턴스는 IAM 역할을 쓸 수 없다. 앱 권한은 환경별 IAM 사용자에게 Bedrock 호출과 백업 버킷 접근만 준다.
+- Lightsail 인스턴스는 IAM 역할을 쓸 수 없다. 앱 권한은 환경별 IAM 사용자에게 백업 버킷 접근만 준다.
 - 사람이 읽는 텍스트(주석, 설명, 문서, 커밋 메시지)는 한국어로 쓴다. 리소스 이름, 변수명, 태그 키는 영어다.
 
 ## 구조와 브랜치 전략
@@ -48,7 +48,7 @@ terraform -chdir=modules/santacut_app init -backend=false && terraform -chdir=mo
 | 인프라 2 | 인프라 전문가 | 상태와 데이터: SQLite 디스크, 스냅숏·백업·복구 절차, 환경 간 데이터 분리 |
 | 인프라 3 | 인프라 전문가 | Terraform 구조와 운영: 모듈 설계, 원격 상태·잠금, 버전 고정, CI/CD, 관측·알람·예산 |
 | AWS 1 | AWS 전문가 | 컴퓨트와 요청 처리: Lightsail 번들·방화벽·고정 IP, 컨테이너 실행, 배포·롤백 |
-| AWS 2 | AWS 전문가 | AI 추론: Bedrock 모델 접근, 교차 리전 추론 권한, 비용 상한과 예산 보호 |
+| AWS 2 | AWS 전문가 | AI 연동: Gemini API 키 관리, AI 비용 상한(앱 한도와 Google Cloud 예산 알림), 개인정보 국외 이전 |
 | AWS 3 | AWS 전문가 | 보안·네트워크·도메인: IAM 최소 권한, OIDC, 비밀값, SSH 노출, DNS·TLS, 개인정보 국외 이전 |
 
 ### 판정 방법

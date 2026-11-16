@@ -76,7 +76,7 @@
     <rect class="card" width="680" height="64" rx="14"/>
     <circle cx="32" cy="32" r="15" fill="#76CBC6"/><text x="32" y="38" text-anchor="middle" font-size="15" font-weight="800" fill="#08121F">3</text>
     <text class="h" x="62" y="28">환경별 권한 경계</text>
-    <text class="s" x="62" y="50">앱 사용자 상한: Bedrock 호출 + 자기 백업 버킷·KMS 키</text>
+    <text class="s" x="62" y="50">앱 사용자 상한: 자기 백업 버킷·KMS 키</text>
   </g><g transform="translate(480,362)">
     <rect class="card" width="680" height="64" rx="14"/>
     <circle cx="32" cy="32" r="15" fill="#6AC8AE"/><text x="32" y="38" text-anchor="middle" font-size="15" font-weight="800" fill="#08121F">4</text>

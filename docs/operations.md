@@ -62,37 +62,19 @@ bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-m
 4. `workflow_dispatch`로 terraform 워크플로를 돌리거나 PR을 병합한다. 서버 A 레코드가 생긴다. dev는 `api-dev.<도메인>`, 운영은 `api.<도메인>`이다. 루트와 `www`는 프론트용으로 비워 둔다.
 5. 로컬 앱 설정 파일에 `DOMAIN`, `ACME_EMAIL`을 채우고 `PUBLIC_BASE_URL=https://api-dev.<도메인>`(운영은 `api.<도메인>`), `SESSION_SECURE=true`로 바꾼다. `scripts/put-secrets.sh`로 다시 올리고 앱을 다시 띄운다(6절). Caddyfile은 고치지 않는다.
 
-## 3. Bedrock 모델 활성화
+## 3. AI(Gemini)와 개인정보 국외 이전
 
-상용 리전에는 모델 접근 신청 절차가 없다. 계정에서 처음 호출할 때 AWS Marketplace 구독이 자동으로 시작되며, 그 호출 주체에는 `aws-marketplace:Subscribe` 권한이 필요하다. 앱 IAM 사용자에게는 이 권한을 주지 않으므로 관리자가 먼저 한 번 호출한다.
-
-1. 서울 리전 Bedrock 콘솔의 모델 카탈로그에서 Claude Haiku 5.5를 찾아 **기반 모델 ID**(`anthropic.`으로 시작)를 확인한다. Global 추론 프로파일 ID는 앞에 `global.`을 붙인 값이다.
-2. Global 프로파일이 서울 리전에 있는지 확인한다.
-
-   ```sh
-   aws bedrock list-inference-profiles --region ap-northeast-2 \
-     --query "inferenceProfileSummaries[?starts_with(inferenceProfileId,'global.anthropic')].inferenceProfileId"
-   ```
-
-3. 관리자 자격 증명으로 플레이그라운드나 CLI에서 Global 프로파일을 한 번 호출한다.
-4. 활성화를 확인한다.
-
-   ```sh
-   aws bedrock get-foundation-model-availability --region ap-northeast-2 --model-id <기반 모델 ID>
-   # agreementAvailability.status 가 AVAILABLE 이어야 한다
-   ```
-
-5. Anthropic 사용 사례 제출(FTU)을 요구하면 콘솔 안내대로 제출한다.
+앱은 Google Gemini 2.5 Flash로 점수를 낸다. AWS 쪽에 따로 활성화할 것은 없다. API 키는 Google AI Studio에서 받아 앱 설정의 `GEMINI_API_KEY`로 넣는다(6절 2).
 
 ### 개인정보 국외 이전 고지
 
-Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개인정보 처리방침에 아래 항목을 모두 적는다(개인정보 보호법 제28조의8). 법률 검토는 별도로 받는다.
+Gemini API는 요청을 국외에서 처리한다. 개인정보 처리방침에 아래 항목을 모두 적는다(개인정보 보호법 제28조의8). 법률 검토는 따로 받는다.
 
-- 이전받는 자: Amazon Web Services, Inc.(연락처 포함)
-- 이전 국가: AWS Global 추론 대상 리전 전체(특정 국가로 한정되지 않음을 명시)
+- 이전받는 자: Google LLC(연락처 포함)
+- 이전 국가: Google이 Gemini API를 처리하는 국가(특정 국가로 한정되지 않음을 명시)
 - 이전 항목: 분석을 위해 보내는 대화 텍스트. 닉네임·세션 같은 식별 정보는 보내지 않는다
 - 이전 시기와 방법: 분석 요청 시 암호화된 네트워크로 전송
-- 이전 목적과 보유·이용 기간: AI 점수 산정, 처리 후 보관하지 않음(Bedrock 데이터 정책 확인)
+- 이전 목적과 보유·이용 기간: AI 점수 산정. 보관 기간은 Gemini API 약관과 데이터 정책을 확인해 적는다
 - 거부 방법과 거부 시 효과: 분석 기능을 이용하지 않으면 이전되지 않는다
 
 ## 4. GitHub 레포 설정 (santacut-infra)
@@ -119,7 +101,6 @@ Global 추론은 요청을 다른 나라 리전에서 처리할 수 있다. 개�
 | `DOMAIN_NAME` | 서비스 도메인. 도메인을 사기 전에는 비워 둔다 |
 | `SSH_PUBLIC_KEY` | 배포용 SSH 공개 키 |
 | `SSH_ALLOWED_CIDRS` | HCL 목록 형식, /24 이상, 예: `["203.0.113.10/32"]`. SSH(22)만 제한한다. 80/443은 모두에게 열려 있어 프런트엔드 접속에는 영향이 없다 |
-| `BEDROCK_MODEL_ID` | 3단계의 기반 모델 ID(`anthropic.`으로 시작). 앱이 Gemini로 바뀐 뒤로는 IAM 정책에만 남아 있다 |
 | `DEV_ENABLED` | 평소에는 비워 둔다. dev를 내렸을 때만 `false` |
 | `MAIN_ENABLED` | 운영을 켤 때만 `true`. 비우면 dev만 plan·적용한다(12절) |
 | `HEALTH_PATH` | 상태 확인 경로. 비우면 `/v3/api-docs` |
@@ -173,6 +154,8 @@ tail -n 5 /var/log/santacut-init.log     # 마지막 줄: santacut-init: OK
 docker compose version
 ls -ld /opt/santacut/releases /opt/santacut/backups /opt/santacut/aws   # aws는 700
 systemctl is-enabled santacut-secrets    # enabled. 자격 증명을 넣기 전에는 조건 미충족으로 건너뛴다
+stat -c '%a %U' /opt/santacut/backup.env /opt/santacut/backup.sh   # 600 ubuntu, 750 ubuntu
+crontab -l                               # 0 * * * * /opt/santacut/backup.sh ...
 swapon --show                            # /swapfile 1G
 free -m
 ```
@@ -197,7 +180,8 @@ aws lightsail get-instance-port-states --instance-name santacut-dev-app
      --> /run/santacut/app.env (tmpfs, 600, ubuntu) --> docker compose env_file
 ```
 
-- `fetch-secrets.sh`는 받은 설정 뒤에 자격 증명 파일의 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`를 붙인다. 그래서 S3의 `app.env`에는 액세스 키를 넣지 않는다. 앱은 이제 AWS 키를 쓰지 않고, 백업 스크립트가 같은 자격 증명 파일을 쓴다.
+- 앱은 AWS 키를 쓰지 않는다. 자격 증명 파일은 `fetch-secrets.sh`와 백업 스크립트만 쓰고, 앱 컨테이너에는 넘기지 않는다. S3의 `app.env`에도 액세스 키를 넣지 않는다.
+- `app.env`에 `GHCR_USER`, `GHCR_TOKEN`이 있으면 `fetch-secrets.sh`가 ubuntu로 `docker login ghcr.io --password-stdin`을 실행한다. 두 키는 빼고 나머지만 tmpfs에 쓰며, 토큰은 출력하지 않는다. 로그인 정보는 `~ubuntu/.docker/config.json`에 남는다.
 - 앱 사용자는 `config/`를 읽기만 하고, `backups/`에만 쓴다.
 
 ### 1) 액세스 키 발급과 인스턴스 기록
@@ -214,16 +198,7 @@ aws iam create-access-key --user-name santacut-$env-app \
 ssh ubuntu@$ip 'stat -c "%a %U" /opt/santacut/aws/credentials'   # 600 ubuntu
 ```
 
-키 권한을 인스턴스에서 확인한다. 프로파일 ID로는 성공하고 기반 모델 ID로는 거부되어야 한다. 인스턴스에는 AWS CLI가 없어 공식 CLI 이미지를 잠시 쓴다.
-
-```sh
-cli="docker run --rm -v /opt/santacut/aws:/root/.aws:ro public.ecr.aws/aws-cli/aws-cli --region ap-northeast-2"
-$cli bedrock-runtime converse --model-id global.<기반 모델 ID> \
-  --messages '[{"role":"user","content":[{"text":"ping"}]}]'          # 성공
-$cli bedrock-runtime converse --model-id <기반 모델 ID> \
-  --messages '[{"role":"user","content":[{"text":"ping"}]}]'          # AccessDeniedException
-docker image rm public.ecr.aws/aws-cli/aws-cli
-```
+키 권한은 백업 한 번으로 확인한다. `/opt/santacut/backup.sh`가 `Off-host backup verified`로 끝나야 한다. 첫 배포 전이면 건너뛰었다는 줄만 나온다.
 
 ### 2) 앱 설정을 암호화해 올리기 (운영자 PC)
 
@@ -240,6 +215,10 @@ APP_SEASON_YEAR=2026
 GEMINI_API_KEY=<Gemini API 키>
 # dev에만 둔다. 프롬프트 관리 API(/v1/admin/prompts)를 켠다. main에서는 이 줄을 빼 404로 둔다.
 PROMPT_ADMIN_ENABLED=true
+# 비공개 GHCR 이미지를 받을 때만 넣는다. read:packages 권한만 준 토큰을 쓰고, 따옴표 없이 적는다.
+# 앱 컨테이너에는 넘어가지 않는다(위 fetch-secrets.sh 설명).
+GHCR_USER=<GitHub 사용자>
+GHCR_TOKEN=<read:packages 토큰>
 ```
 
 이 파일을 권한 600으로 만들고 올린다. 스크립트는 WSL, Linux, macOS에서 돌린다. Git Bash는 파일 권한을 표현하지 못해 항상 거부된다.
@@ -259,7 +238,7 @@ AWS_PROFILE=santacut bash scripts/put-secrets.sh dev ~/santacut-dev.env
 
 ```sh
 sudo systemctl restart santacut-secrets
-systemctl status santacut-secrets --no-pager     # fetch-secrets: OK
+systemctl status santacut-secrets --no-pager     # fetch-secrets: OK (GHCR 키가 있으면 GHCR 로그인 OK도)
 stat -c '%a %U' /run/santacut/app.env             # 600 ubuntu
 findmnt -no FSTYPE -T /run/santacut               # tmpfs
 ```
@@ -278,7 +257,7 @@ Compose는 `env_file`을 `up`할 때만 읽는다. 설정을 바꿨으면 `docke
 
 ### `/opt/santacut/backup.env` (권한 600, 소유자 ubuntu)
 
-`backup.sh`는 이 파일을 `source`하고 rclone을 직접 실행한다. 이제 이 파일에는 비밀값이 없다. rclone은 `AWS_SHARED_CREDENTIALS_FILE`이 가리키는 자격 증명 파일을 읽는다.
+첫 부팅 스크립트가 Terraform의 환경 KMS 키 ARN과 백업 버킷 이름으로 이 파일을 만든다. 손으로 쓸 일은 없고, 아래는 확인용이다. `backup.sh`는 이 파일을 `source`하고 rclone을 직접 실행한다. 이 파일에는 비밀값이 없다. rclone은 `AWS_SHARED_CREDENTIALS_FILE`이 가리키는 자격 증명 파일을 읽는다.
 
 - 앱 사용자에게는 버킷 생성 권한이 없으므로 `no_check_bucket=true`가 필요하다.
 - 버킷 정책이 SSE-KMS와 이 환경 키 ARN을 요구한다. 그래서 `server_side_encryption`, `sse_kms_key_id`가 필요하다. 키 ARN은 환경 출력값 `kms_key_arn`이다. 값에 콜론이 있어 작은따옴표로 감싼다.
@@ -295,7 +274,7 @@ BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_buc
 
 1. 1)의 명령으로 새 키를 발급해 자격 증명 파일을 덮어쓴다.
 2. `sudo systemctl restart santacut-secrets` 후 위의 `up -d --force-recreate`로 앱을 다시 만든다.
-3. 백업 한 번(`/opt/santacut/backup.sh`)과 앱의 Bedrock 호출이 되는지 확인한다.
+3. 백업 한 번(`/opt/santacut/backup.sh`)이 되는지 확인한다.
 4. 예전 키를 지운다: `aws iam delete-access-key --user-name santacut-<env>-app --access-key-id <예전 키 ID>`.
 
 ### 이미 있는 인스턴스에 적용하기 (한 번)
@@ -306,7 +285,8 @@ BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_buc
 
    ```sh
    env=dev; acct=466417120611
-   sed -e 's/\$\${/${/g' -e "s/\${backup_bucket}/santacut-$env-backup-$acct/" \
+   kms=$(aws kms describe-key --key-id alias/santacut-$env --query KeyMetadata.Arn --output text)
+   sed -e 's/\$\${/${/g' -e "s/\${backup_bucket}/santacut-$env-backup-$acct/" -e "s|\${kms_key_arn}|$kms|" \
      modules/santacut_app/cloud-init.sh > /tmp/santacut-init.sh
    scp /tmp/santacut-init.sh ubuntu@$ip:/tmp/
    ssh ubuntu@$ip 'sudo bash /tmp/santacut-init.sh; tail -n 1 /var/log/santacut-init.log; rm /tmp/santacut-init.sh'
@@ -320,7 +300,7 @@ BACKUP_REMOTE=":s3,provider=AWS,env_auth=true,region=ap-northeast-2,no_check_buc
 ## 7. 앱 배포 연동 (앱 레포에서 할 일)
 
 - 앱 레포 GitHub Environment 이름을 `dev`, `main`으로 맞추고, 각각 배포 브랜치를 `main`으로 제한한다. 변수 `AWS_DEPLOY_ROLE_ARN`에 `app_deploy_role_arns.<env>`를 넣는다.
-- 완료(2026-11-16): 앱 Compose에서 Ollama 설정을 뺐다. 앱은 Spring AI Bedrock Converse(비스트리밍)로 부르고, 요청마다 최대 출력 토큰(500)을 정한다. 앱에는 AI 호출 수 한도가 없다(2026-11-16에 뺐다). AI 비용은 10절의 Bedrock 예산 차단으로만 막는다. AWS 키는 `app.env`의 환경 변수로 받는다(기본 자격 증명 체인).
+- 완료(2026-11-16): 앱은 Bedrock 대신 Google Gemini 2.5 Flash를 부른다. 키는 `app.env`의 `GEMINI_API_KEY`다. AI 비용 보호는 10절에 있다.
 - 완료: 릴리스 묶음(tar)에 `scripts/deploy.sh`와 `scripts/backup.sh`가 함께 들어간다.
 - 완료: `backup.sh`에서 age 암호화를 뺐다. SQLite `.backup` 결과를 `$BACKUP_REMOTE`(`backups/sqlite`)에 올리면 S3가 KMS로 암호화한다. 올린 뒤 내려받아 대조하고, 로컬 복사본은 2일만 둔다. `BACKUP_AGE_RECIPIENT`는 없다.
 - 완료: Compose와 `deploy.sh`, `backup.sh`는 앱 설정을 `/run/santacut/app.env`에서 읽는다(6절 3).
@@ -343,16 +323,15 @@ aws lightsail close-instance-public-ports --instance-name santacut-main-app \
 
 공개 포트 규칙(`aws_lightsail_instance_public_ports`)을 바꾸는 apply는 리소스를 교체하면서 80/443을 몇 초 닫는다. 운영자 CIDR 변경은 트래픽이 적은 시간에 하고, 앱 배포 중에는 인프라 apply를 돌리지 않는다.
 
-### 백업 스크립트 설치와 cron
+### 백업 스크립트와 cron (자동)
 
-`deploy.sh`는 `/opt/santacut/backup.sh`가 없으면 두 번째 배포부터 멈춘다. 첫 배포 뒤 설치한다.
+첫 부팅 스크립트가 아래를 만든다. 손으로 설치할 일은 없다.
 
-```sh
-sudo install -o ubuntu -g ubuntu -m 0750 /opt/santacut/current/scripts/backup.sh /opt/santacut/backup.sh
-( crontab -u ubuntu -l 2>/dev/null; echo '0 * * * * /opt/santacut/backup.sh >> /opt/santacut/backups/backup.log 2>&1' ) | crontab -u ubuntu -
-```
+- `/opt/santacut/backup.env`: 6절 형식. 환경 KMS 키 ARN과 백업 버킷은 Terraform이 넣는다.
+- `/opt/santacut/backup.sh`: 현재 릴리스의 `scripts/backup.sh`를 `bash`로 부르는 진입점이다. 본체가 릴리스 묶음에 들어 있어 따로 복사하지 않아도 늘 최신이다. 첫 배포 전에는 건너뛰었다는 줄만 남기고 끝난다.
+- ubuntu crontab: `0 * * * * /opt/santacut/backup.sh >> /opt/santacut/backups/backup.log 2>&1`
 
-릴리스 묶음에 아직 `backup.sh`가 없다면 앱 레포 체크아웃에서 `scp backend/ci-cd/scripts/backup.sh ubuntu@<static_ip>:/tmp/`로 올린 뒤 같은 `install` 명령을 쓴다.
+`deploy.sh`는 두 번째 배포부터 이 진입점으로 배포 전 백업을 뜬다.
 
 ## 8. 관측과 알람
 
@@ -475,44 +454,30 @@ done
 10. 8절의 Lightsail 알람이 남아 있는지 `aws lightsail get-alarms`로 확인하고, 없으면 다시 건다.
 11. 장애 복구였다면 스냅숏 시점의 SQLite는 최대 하루 전이다. 더 최신인 S3 백업으로 덮어쓸지 판단하고, 덮어쓰면 위 복원 절차를 따른다.
 
-## 10. Bedrock 예산 차단과 해제
+## 10. AI 비용 보호 (Gemini)
 
-1. 첫 Bedrock 호출 다음 날, Cost Explorer에서 Bedrock 비용이 잡히는 서비스 이름을 확인한다. Anthropic 모델은 Marketplace 상품명으로 잡힐 수 있다.
+Gemini 비용은 AWS 청구서에 잡히지 않는다. AWS 계정 예산(`santacut-monthly`)은 Lightsail, S3 같은 AWS 비용만 본다. AI 비용은 아래 두 가지로 막는다.
 
-   ```sh
-   aws ce get-cost-and-usage --time-period Start=<어제>,End=<오늘> --granularity DAILY \
-     --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE
-   ```
-
-2. 그 이름으로 bootstrap 변수 `bedrock_cost_service_names`를 맞추고 다시 적용한다. 다음 날 `aws budgets describe-budget --account-id <계정> --budget-name santacut-bedrock --query Budget.CalculatedSpend.ActualSpend`가 0이 아닌지 확인한다.
-3. 2단계 확인이 끝난 뒤에만 `enable_bedrock_stop = true`로 다시 적용한다. dev만 쓰는 동안은 main 앱 사용자가 없으므로 `bedrock_stop_environments = ["dev"]`도 함께 넣는다. 실제 비용이 100%를 넘으면 `bedrock_stop_environments`의 앱 사용자에게 `santacut-deny-bedrock` 정책이 자동으로 붙는다. 청구 데이터가 하루 늦게 반영되므로 차단도 하루쯤 늦을 수 있다. 앱에는 AI 호출 수 한도가 없다. 호출 한 번의 비용은 앱의 최대 출력 토큰(500)과 입력 제한(이벤트 2,000개, 200,000자)이, 호출 수는 참가자별 24시간 3회 제출 한도가 묶는다.
-4. 해제: 원인을 확인하고 예산을 올리거나 다음 달을 기다린 뒤 정책을 뗀다.
-
-   ```sh
-   for env in dev main; do
-     aws iam detach-user-policy --user-name santacut-$env-app --policy-arn arn:aws:iam::<계정>:policy/santacut-deny-bedrock
-   done
-   ```
+1. **앱 자체 한도**: 앱이 Gemini 사용액을 하루 0.5달러, 한 달 9달러에서 끊는다. 한도 설정은 앱 레포에 있다.
+2. **Google Cloud 결제 예산 알림**: 운영자가 Google Cloud 콘솔(결제 → 예산 및 알림)에서 Gemini API 키가 속한 프로젝트에 예산을 만들고 알림 이메일을 건다. 알림만 보내고 호출은 막지 않는다. Terraform이 관리하지 않으므로 프로젝트 종료 때 직접 지운다.
 
 ## 11. dev 내리기
 
 dev가 당분간 필요 없으면 아래 순서로 내린다. dev 데이터는 사라지므로 필요한 백업을 먼저 받아 둔다.
 
 1. 레포 변수 `DEV_ENABLED=false`를 넣어 병합 때 dev가 다시 생기지 않게 한다. 상태 확인 워크플로도 dev를 건너뛴다.
-2. bootstrap 변수 `bedrock_stop_environments = ["main"]`으로 바꾸고 bootstrap을 다시 적용한다.
-3. Terraform 밖에서 붙은 것을 앱 사용자에서 뗀다. 남아 있으면 사용자 삭제가 `DeleteConflict`로 실패한다.
+2. Terraform 밖에서 붙은 것을 앱 사용자에서 뗀다. 남아 있으면 사용자 삭제가 `DeleteConflict`로 실패한다.
 
    ```sh
    aws iam list-access-keys --user-name santacut-dev-app
    aws iam delete-access-key --user-name santacut-dev-app --access-key-id <키 ID>
-   aws iam detach-user-policy --user-name santacut-dev-app --policy-arn arn:aws:iam::<계정>:policy/santacut-deny-bedrock   # 붙어 있을 때만
    ```
 
-4. dev 백업 버킷의 모든 객체 버전을 지운다(콘솔에서 버킷 비우기).
-5. 로컬에서 `modules/santacut_app/main.tf`의 `prevent_destroy`를 잠시 `false`로 바꾸고 `envs/dev`에서 `terraform destroy`한다. **이 변경은 커밋하지 않는다.** 운영 보호도 같은 줄이 맡고 있다.
-6. `git checkout modules/santacut_app/main.tf`로 되돌린다.
+3. dev 백업 버킷의 모든 객체 버전을 지운다(콘솔에서 버킷 비우기).
+4. 로컬에서 `modules/santacut_app/main.tf`의 `prevent_destroy`를 잠시 `false`로 바꾸고 `envs/dev`에서 `terraform destroy`한다. **이 변경은 커밋하지 않는다.** 운영 보호도 같은 줄이 맡고 있다.
+5. `git checkout modules/santacut_app/main.tf`로 되돌린다.
 
-다시 올릴 때는 `DEV_ENABLED`를 지우고 `bedrock_stop_environments`를 되돌린 뒤 병합하거나 `workflow_dispatch`로 실행한다.
+다시 올릴 때는 `DEV_ENABLED`를 지운 뒤 병합하거나 `workflow_dispatch`로 실행한다.
 
 ## 12. 운영(main) 켜기
 
@@ -522,8 +487,7 @@ dev가 당분간 필요 없으면 아래 순서로 내린다. dev 데이터는 �
 2. 운영 고정비만큼 bootstrap `monthly_budget_usd`를 올린다. README 비용 표에서 두 환경 금액을 확인한다.
 3. 레포 변수 `MAIN_ENABLED=true`를 넣는다.
 4. `workflow_dispatch`로 실행하거나 PR을 병합한다. dev 적용 뒤 운영 plan이 나오고, 승인하면 적용된다.
-5. `enable_bedrock_stop`을 켰다면 main 앱 사용자가 생긴 지금 `bedrock_stop_environments`를 `["dev", "main"]`으로 되돌리고 bootstrap을 다시 적용한다.
-6. 5~8단계의 첫 부팅 확인, 비밀값, 배포 연동, 알람을 main에도 한다.
+5. 5~8단계의 첫 부팅 확인, 비밀값, 배포 연동, 알람을 main에도 한다.
 
 운영 도메인은 서비스 도메인 그 자체다. 도메인 없이 켜면 main도 고정 IP로 접속한다.
 
@@ -538,7 +502,7 @@ dev가 당분간 필요 없으면 아래 순서로 내린다. dev 데이터는 �
    aws s3 cp s3://santacut-<env>-backup-466417120611/backups/sqlite/ ./final-backup/ --recursive
    ```
 
-3. **Terraform 밖에서 만든 것 지우기**: 앱 사용자 액세스 키와 `santacut-deny-bedrock` 부착(11절 3), Lightsail 알람과 연락처(`aws lightsail delete-alarm`, `delete-contact-method`), 수동 스냅숏(`aws lightsail get-instance-snapshots` 후 `delete-instance-snapshot`). 자동 스냅숏은 인스턴스와 함께 지워진다.
+3. **Terraform 밖에서 만든 것 지우기**: 앱 사용자 액세스 키(11절 2), Google Cloud 결제 예산 알림(10절), Lightsail 알람과 연락처(`aws lightsail delete-alarm`, `delete-contact-method`), 수동 스냅숏(`aws lightsail get-instance-snapshots` 후 `delete-instance-snapshot`). 자동 스냅숏은 인스턴스와 함께 지워진다.
 4. **`prevent_destroy` 풀기**: 아래 파일의 `prevent_destroy = true`를 로컬에서만 `false`로 바꾼다. **커밋하지 않는다.**
    - `modules/santacut_app/main.tf` (Lightsail 인스턴스)
    - `bootstrap/state.tf` (상태 버킷)

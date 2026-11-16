@@ -139,20 +139,20 @@
     <text class="xs" x="918" y="610" text-anchor="middle">최대 21일 보관</text>
   </g>
 
-  <!-- Bedrock -->
+  <!-- Gemini -->
   <rect x="1020" y="150" width="146" height="480" rx="18" fill="#8ECDF5" fill-opacity="0.08" stroke="#8ECDF5" stroke-opacity="0.7" stroke-width="1.5"/>
   <g transform="translate(1093,232)">
     <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15" fill="#8ECDF5"/>
     <path d="M0,-14 L4,-4 L14,0 L4,4 L0,14 L-4,4 L-14,0 L-4,-4 z" fill="#0C1B2E"/>
   </g>
-  <text class="h" x="1093" y="296" text-anchor="middle">Amazon</text>
-  <text class="h" x="1093" y="318" text-anchor="middle">Bedrock</text>
-  <text class="s" x="1093" y="352" text-anchor="middle">Claude</text>
-  <text class="s" x="1093" y="372" text-anchor="middle">Haiku 5.5</text>
+  <text class="h" x="1093" y="296" text-anchor="middle">Google</text>
+  <text class="h" x="1093" y="318" text-anchor="middle">Gemini</text>
+  <text class="s" x="1093" y="352" text-anchor="middle">2.5</text>
+  <text class="s" x="1093" y="372" text-anchor="middle">Flash</text>
   <rect x="1038" y="396" width="110" height="28" rx="14" fill="#8ECDF5" fill-opacity="0.18"/>
-  <text x="1093" y="415" text-anchor="middle" font-size="14" font-weight="700" fill="#8ECDF5">Global 추론</text>
-  <text class="xs" x="1093" y="460" text-anchor="middle">비스트리밍</text>
-  <text class="xs" x="1093" y="480" text-anchor="middle">Converse 호출</text>
+  <text x="1093" y="415" text-anchor="middle" font-size="14" font-weight="700" fill="#8ECDF5">외부 API</text>
+  <text class="xs" x="1093" y="460" text-anchor="middle">AWS 밖</text>
+  <text class="xs" x="1093" y="480" text-anchor="middle">앱 비용 한도</text>
   <text class="xs" x="1093" y="530" text-anchor="middle">모델은 서버 밖</text>
   <path d="M820,202 C920,202 950,262 1016,262" stroke="#8ECDF5" stroke-width="2" fill="none" marker-end="url(#arr)"/>
   <path class="later" d="M820,482 C920,482 950,452 1016,452" marker-end="url(#arrLater)"/>
@@ -162,6 +162,6 @@
     <rect class="card" x="0" width="268" height="64" rx="14"/><rect x="18" y="22" width="20" height="20" rx="5" fill="#E9B949"/><text x="52" y="27" font-size="15" font-weight="700">Terraform 상태</text><text class="xs" x="52" y="49">S3, 네이티브 잠금, 버전 관리</text>
     <rect class="card" x="284" width="268" height="64" rx="14"/><circle cx="312" cy="32" r="10" fill="#F5F8FC"/><text x="336" y="27" font-size="15" font-weight="700">GitHub Actions</text><text class="xs" x="336" y="49">OIDC 역할, 장기 키 없음</text>
     <rect class="card" x="568" width="268" height="64" rx="14"/><rect x="586" y="22" width="20" height="20" rx="5" fill="#FF7A93"/><text x="620" y="27" font-size="15" font-weight="700">KMS 키</text><text class="xs" x="620" y="49">환경마다 1개, 자동 교체</text>
-    <rect class="card" x="852" width="268" height="64" rx="14"/><rect x="870" y="22" width="20" height="20" rx="5" fill="#4CC38A"/><text x="904" y="27" font-size="15" font-weight="700">예산 알림</text><text class="xs" x="904" y="49">계정 20 USD, Bedrock 10 USD</text>
+    <rect class="card" x="852" width="268" height="64" rx="14"/><rect x="870" y="22" width="20" height="20" rx="5" fill="#4CC38A"/><text x="904" y="27" font-size="15" font-weight="700">예산 알림</text><text class="xs" x="904" y="49">AWS 계정 20 USD</text>
   </g>
 </svg>

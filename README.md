@@ -10,7 +10,7 @@
 <p align="center">
   <img alt="Terraform 1.17" src="https://img.shields.io/badge/Terraform-1.17-134236?logo=terraform&logoColor=white">
   <img alt="AWS Lightsail" src="https://img.shields.io/badge/AWS-Lightsail-B5123E?logo=amazonwebservices&logoColor=white">
-  <img alt="Amazon Bedrock" src="https://img.shields.io/badge/Amazon%20Bedrock-Claude%20Haiku%205.5-1E3A5C">
+  <img alt="Google Gemini" src="https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-1E3A5C">
   <img alt="GitHub OIDC" src="https://img.shields.io/badge/GitHub%20Actions-OIDC-12263F?logo=githubactions&logoColor=white">
   <img alt="Region" src="https://img.shields.io/badge/region-ap--northeast--2-0C1B2E">
   <img alt="ExpiresOn 2026-12-31" src="https://img.shields.io/badge/ExpiresOn-2026--12--31-8A6410">
@@ -36,7 +36,7 @@
 | --- | --- |
 | Lightsail | 고정 IP·전송량 포함 월 정액이다 |
 | SQLite 유지 | 관리형 DB 고정비가 없다 |
-| Bedrock Global 추론 | 서버에서 모델을 돌리지 않는다 |
+| Gemini API | 서버에서 모델을 돌리지 않는다 |
 | 같은 계정, IAM 분리 | 이름 접두사와 태그로 환경을 가른다 |
 | 트렁크 기반 | 브랜치는 `main` 하나다 |
 
@@ -56,7 +56,7 @@
 
 ## 아키텍처
 
-<p align="center"><img src="docs/images/architecture.svg" alt="아키텍처: 사용자가 dev 고정 IP로 HTTP 접속하고, Lightsail 인스턴스의 Caddy와 Spring Boot, SQLite, S3 백업, Bedrock으로 이어진다. Route 53과 main 환경은 나중에 켠다" width="100%"></p>
+<p align="center"><img src="docs/images/architecture.svg" alt="아키텍처: 사용자가 dev 고정 IP로 HTTP 접속하고, Lightsail 인스턴스의 Caddy와 Spring Boot, SQLite, S3 백업으로 이어지고, AI 점수는 Gemini API에서 받는다. Route 53과 main 환경은 나중에 켠다" width="100%"></p>
 
 - 요청은 Route 53 → 고정 IP → Caddy(TLS) → Spring Boot 순서다.
 - 도메인을 사기 전에는 고정 IP에 HTTP로 접속한다. Route 53은 쓰지 않는다.
@@ -65,7 +65,7 @@
 - DB 백업은 S3에 따로 올린다. 버킷이 환경별 KMS 키로 암호화한다(SSE-KMS).
 - 백업은 14일 뒤 이전 버전이 되고, 7일 뒤 영구 삭제된다. 그래서 최대 21일 남는다.
 - 앱 설정(`.env`)도 KMS로 암호화해 S3에 두고, 부팅 때 tmpfs로 받는다.
-- AI 점수는 Bedrock Claude Haiku 5.5가 낸다.
+- AI 점수는 Google Gemini 2.5 Flash가 낸다. AWS 밖의 서비스라 그림에는 없다.
 
 ## 배포 파이프라인
 
@@ -116,7 +116,7 @@ flowchart LR
 
 ## 예상 월 비용
 
-<p align="center"><img src="docs/images/cost.svg" alt="예상 월 비용 막대 그래프: 고정비 약 8 USD, Bedrock 예산 10 USD에서 자동 차단, 예산 알림 계정 20 USD와 Bedrock 10 USD" width="100%"></p>
+<p align="center"><img src="docs/images/cost.svg" alt="예상 월 비용 막대 그래프: AWS 고정비 약 8 USD, 계정 예산 알림 20 USD" width="100%"></p>
 
 지금은 dev 한 환경만 켜고 도메인이 없다.
 
@@ -129,23 +129,22 @@ flowchart LR
 | KMS 키 × 2 | 약 2 | 키당 월 1. 키가 있는 동안 과금, 삭제 후 7일 대기. 요청 요금은 버킷 키로 줄인다 |
 | GitHub Actions | 0 | 공개 레포 표준 러너 |
 | **고정비 합계** | **약 8** | |
-| Bedrock Claude Haiku 4.5 | 최대 10 | 사용량 비례. 예산 10달러를 넘으면 앱 사용자에 거부 정책이 자동으로 붙는다 |
+| Gemini 2.5 Flash (Google 청구) | 최대 9 | 사용량 비례. 앱이 하루 0.5달러, 한 달 9달러에서 끊는다 |
 
 나중에 도메인을 사고 `main`까지 켜면 고정비는 약 14~15달러다(인스턴스 5 × 2, KMS 2, 스냅숏 약 1, Route 53 0.5, S3 1 미만). KMS 키는 bootstrap이 두 환경 몫을 미리 만든다.
 
 <details>
-<summary>Bedrock 비용 방어</summary>
+<summary>AI 비용 방어</summary>
 
-- 앱에는 하루 AI 호출 한도가 없다. 비용은 예산으로만 막는다.
-- Bedrock 예산은 월 10달러다(`bootstrap/budget.tf`).
-- 실제 비용이 100%를 넘으면 dev 앱 IAM 사용자에 Bedrock 거부 정책이 자동으로 붙는다(`enable_bedrock_stop = true`).
-- 해제 절차는 [운영 문서 10절](docs/operations.md#10-bedrock-예산-차단과-해제)에 있다.
-- 예산 데이터는 하루에 몇 번만 갱신된다. 차단은 몇 시간 늦을 수 있다.
-- 사용자당 24시간 3회 제출 제한이 남아 있어 갑자기 크게 늘지는 않는다.
+- Gemini 비용은 Google이 청구한다. AWS 예산에는 잡히지 않는다.
+- 1차 방어는 앱 자체 한도다. 하루 0.5달러, 한 달 9달러에서 호출을 끊는다.
+- 2차로 운영자가 Google Cloud 결제 예산 알림을 직접 건다. 알림만 보내고 호출을 막지는 않는다.
+- 사용자당 24시간 3회 제출 제한도 남아 있다.
+- 자세한 내용은 [운영 문서 10절](docs/operations.md#10-ai-비용-보호-gemini)에 있다.
 
 </details>
 
-- 예산 알림: 계정 20달러, Bedrock 10달러(`bootstrap/budget.tf`).
+- AWS 예산 알림: 계정 20달러(`bootstrap/budget.tf`). AWS 비용만 본다.
 - 512MB는 Caddy와 Spring에 빠듯하다. 1GB 스왑을 두고 JVM 힙을 제한한다([운영 문서 6단계](docs/operations.md#512mb-번들의-메모리)).
 - 사양을 올리려면 `bundle_id`를 바꾼다. 인스턴스 교체 절차를 따른다([운영 문서 9절](docs/operations.md#인스턴스-교체-사양-올리기-장애-복구)).
 - Lightsail은 멈춰도 요금이 나간다.
@@ -172,7 +171,7 @@ santacut-infra/
 
 1. bootstrap을 적용한다(KMS 키 포함). 도메인이 없으면 비워 둔다. 환경보다 먼저 적용해야 한다.
 2. 도메인을 샀다면 가비아 네임서버를 위임한다.
-3. Bedrock 모델을 활성화한다.
+3. Gemini API 키를 받고 개인정보 국외 이전 고지를 준비한다.
 4. GitHub 변수와 Environment를 설정한다.
 5. PR을 병합해 dev를 적용한다. `main`은 `MAIN_ENABLED=true`일 때만 적용된다.
 
