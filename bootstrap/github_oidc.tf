@@ -9,10 +9,10 @@ locals {
   state_arn    = aws_s3_bucket.state.arn
   account_id   = data.aws_caller_identity.current.account_id
 
-  # 환경별로 바꿀 수 있는 DNS 레코드 이름(Route 53 정규화 형식: 소문자, 끝 점 없음).
-  record_names = {
-    dev  = lower("dev.${var.domain_name}")
-    main = lower(var.domain_name)
+  # 환경별로 바꿀 수 있는 DNS 레코드 이름(Route 53 정규화 형식: 소문자, 끝 점 없음). 도메인이 없으면 비어 있다.
+  record_names = local.domain == null ? {} : {
+    dev  = "dev.${local.domain}"
+    main = local.domain
   }
 
   # Terraform 모듈이 쓰는 Lightsail 액션만 허용한다. 로드 밸런서·DB·컨테이너처럼 월 고정비가 드는
@@ -314,21 +314,26 @@ data "aws_iam_policy_document" "apply" {
     }
   }
 
-  statement {
-    sid       = "ManageOwnRecord"
-    actions   = ["route53:ChangeResourceRecordSets"]
-    resources = [aws_route53_zone.main.arn]
+  # 도메인이 있을 때만 자기 레코드를 바꿀 수 있다. 호스팅 영역이 없으면 이 문장도 없다.
+  dynamic "statement" {
+    for_each = aws_route53_zone.main
 
-    condition {
-      test     = "ForAllValues:StringEquals"
-      variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
-      values   = [local.record_names[each.key]]
-    }
+    content {
+      sid       = "ManageOwnRecord"
+      actions   = ["route53:ChangeResourceRecordSets"]
+      resources = [statement.value.arn]
 
-    condition {
-      test     = "ForAllValues:StringEquals"
-      variable = "route53:ChangeResourceRecordSetsRecordTypes"
-      values   = ["A"]
+      condition {
+        test     = "ForAllValues:StringEquals"
+        variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
+        values   = [local.record_names[each.key]]
+      }
+
+      condition {
+        test     = "ForAllValues:StringEquals"
+        variable = "route53:ChangeResourceRecordSetsRecordTypes"
+        values   = ["A"]
+      }
     }
   }
 

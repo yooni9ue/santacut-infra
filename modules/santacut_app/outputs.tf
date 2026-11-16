@@ -9,8 +9,13 @@ output "static_ip" {
 }
 
 output "fqdn" {
-  description = "이 환경의 접속 도메인."
-  value       = aws_route53_record.app.fqdn
+  description = "이 환경의 접속 도메인. 도메인이 없으면 null이다."
+  value       = one(aws_route53_record.app[*].fqdn)
+}
+
+output "app_url" {
+  description = "접속 주소. 도메인이 있으면 https://<fqdn>, 없으면 http://<고정 IP>다."
+  value       = var.fqdn == null ? "http://${aws_lightsail_static_ip.app.ip_address}" : "https://${var.fqdn}"
 }
 
 output "backup_bucket" {

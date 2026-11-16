@@ -4,13 +4,13 @@ output "state_bucket" {
 }
 
 output "zone_id" {
-  description = "Route 53 호스팅 영역 ID. envs/*의 zone_id 값으로 쓴다."
-  value       = aws_route53_zone.main.zone_id
+  description = "Route 53 호스팅 영역 ID. 도메인이 없으면 null이다."
+  value       = one(aws_route53_zone.main[*].zone_id)
 }
 
 output "name_servers" {
-  description = "가비아 도메인 관리에서 네임서버로 등록할 값."
-  value       = aws_route53_zone.main.name_servers
+  description = "가비아 도메인 관리에서 네임서버로 등록할 값. 도메인이 없으면 null이다."
+  value       = one(aws_route53_zone.main[*].name_servers)
 }
 
 output "plan_role_arn" {

@@ -30,16 +30,24 @@ provider "aws" {
   }
 }
 
+locals {
+  # CI는 레포 변수 DOMAIN_NAME이 없으면 빈 문자열을 넘긴다. 빈 값은 도메인 없음(고정 IP 접속)으로 본다.
+  domain = var.domain_name == null ? null : (trimspace(var.domain_name) == "" ? null : lower(trimspace(var.domain_name)))
+}
+
+# bootstrap이 domain_name으로 만든 호스팅 영역. 도메인이 없으면 찾지 않는다.
 data "aws_route53_zone" "main" {
-  name = var.domain_name
+  count = local.domain == null ? 0 : 1
+
+  name = local.domain
 }
 
 module "app" {
   source = "../../modules/santacut_app"
 
   environment       = "main"
-  fqdn              = var.domain_name
-  zone_id           = data.aws_route53_zone.main.zone_id
+  fqdn              = local.domain == null ? null : local.domain
+  zone_id           = one(data.aws_route53_zone.main[*].zone_id)
   bundle_id         = var.bundle_id
   ssh_public_key    = var.ssh_public_key
   ssh_allowed_cidrs = var.ssh_allowed_cidrs

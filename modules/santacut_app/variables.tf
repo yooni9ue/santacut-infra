@@ -15,9 +15,9 @@ variable "availability_zone" {
 }
 
 variable "bundle_id" {
-  description = "Lightsail 번들(사양). small_3_0은 2GB·2 vCPU·월 12달러. 값을 바꿔도 제자리 변경이 되지 않고 재생성이 필요해 prevent_destroy에 막힌다. 사양 변경은 docs/operations.md '사양 올리기' 절차를 따른다."
+  description = "Lightsail 번들(사양). nano_3_0은 512MB·2 vCPU·20GB·월 5달러(서울). JVM 힙을 제한해야 한다(docs/operations.md 6단계). 값을 바꿔도 제자리 변경이 되지 않고 재생성이 필요해 prevent_destroy에 막힌다. 사양 변경은 docs/operations.md '인스턴스 교체' 절차를 따른다."
   type        = string
-  default     = "small_3_0"
+  default     = "nano_3_0"
 }
 
 variable "blueprint_id" {
@@ -51,13 +51,20 @@ variable "snapshot_time_utc" {
 }
 
 variable "zone_id" {
-  description = "앱 도메인 레코드를 만들 Route 53 호스팅 영역 ID."
+  description = "앱 도메인 레코드를 만들 Route 53 호스팅 영역 ID. 도메인이 없으면 null."
   type        = string
+  default     = null
 }
 
 variable "fqdn" {
-  description = "이 환경의 접속 도메인(예: santacut.kr, dev.santacut.kr)."
+  description = "이 환경의 접속 도메인(예: santacut.kr, dev.santacut.kr). null이면 DNS 레코드를 만들지 않는다."
   type        = string
+  default     = null
+
+  validation {
+    condition     = var.fqdn == null || var.zone_id != null
+    error_message = "fqdn을 넣으면 zone_id도 넣어야 한다."
+  }
 }
 
 variable "backup_retention_days" {

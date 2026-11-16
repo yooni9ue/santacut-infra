@@ -1,4 +1,7 @@
 # terraform.tfvars로 복사해 채운다. terraform.tfvars는 커밋하지 않는다.
-domain_name         = "santacut.example"
-monthly_budget_usd  = 40
+# 도메인은 산 뒤에 주석을 풀고 다시 적용한다. 비워 두면 Route 53 호스팅 영역을 만들지 않는다.
+# domain_name = "santacut.example"
+monthly_budget_usd  = 20
 budget_alert_emails = ["operator@example.com"]
+# dev만 쓰는 동안 enable_bedrock_stop을 켜려면 main 앱 사용자가 없으니 dev만 넣는다.
+# bedrock_stop_environments = ["dev"]

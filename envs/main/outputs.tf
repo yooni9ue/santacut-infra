@@ -4,8 +4,13 @@ output "static_ip" {
 }
 
 output "fqdn" {
-  description = "운영 접속 도메인."
+  description = "운영 접속 도메인. 도메인이 없으면 null이다."
   value       = module.app.fqdn
+}
+
+output "app_url" {
+  description = "운영 접속 주소. 도메인이 없으면 http://<고정 IP>다."
+  value       = module.app.app_url
 }
 
 output "instance_name" {

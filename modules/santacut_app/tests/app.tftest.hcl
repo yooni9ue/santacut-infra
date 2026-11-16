@@ -81,8 +81,56 @@ run "dns_points_at_static_ip" {
   command = apply
 
   assert {
-    condition     = aws_route53_record.app.records == toset(["203.0.113.20"]) && aws_route53_record.app.type == "A"
+    condition     = aws_route53_record.app[0].records == toset(["203.0.113.20"]) && aws_route53_record.app[0].type == "A"
     error_message = "도메인 A 레코드는 고정 IP를 가리켜야 한다."
+  }
+
+  assert {
+    condition     = output.app_url == "https://dev.santacut.example"
+    error_message = "도메인이 있으면 접속 주소는 https://<fqdn>이어야 한다."
+  }
+}
+
+run "no_domain_uses_static_ip_without_dns" {
+  command = apply
+
+  variables {
+    fqdn    = null
+    zone_id = null
+  }
+
+  assert {
+    condition     = length(aws_route53_record.app) == 0
+    error_message = "도메인이 없으면 Route 53 레코드를 만들지 않아야 한다."
+  }
+
+  assert {
+    condition     = output.fqdn == null
+    error_message = "도메인이 없으면 fqdn 출력은 null이어야 한다."
+  }
+
+  assert {
+    condition     = output.app_url == "http://203.0.113.20" && output.static_ip == "203.0.113.20"
+    error_message = "도메인이 없으면 접속 주소는 http://<고정 IP>여야 한다."
+  }
+}
+
+run "fqdn_without_zone_is_rejected" {
+  command = plan
+
+  variables {
+    zone_id = null
+  }
+
+  expect_failures = [var.fqdn]
+}
+
+run "default_bundle_is_cheapest" {
+  command = plan
+
+  assert {
+    condition     = aws_lightsail_instance.app.bundle_id == "nano_3_0"
+    error_message = "기본 번들은 월 5달러 nano_3_0이어야 한다."
   }
 }
 

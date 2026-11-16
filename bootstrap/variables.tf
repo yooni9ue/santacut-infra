@@ -14,14 +14,15 @@ variable "app_oidc_subject_repo" {
 }
 
 variable "domain_name" {
-  description = "가비아에서 구매한 서비스 도메인(예: santacut.kr). Route 53 호스팅 영역을 만든다."
+  description = "가비아에서 구매한 서비스 도메인(예: santacut.kr). 넣으면 Route 53 호스팅 영역을 만든다. 도메인을 사기 전에는 비워 둔다(null 또는 빈 문자열)."
   type        = string
+  default     = null
 }
 
 variable "monthly_budget_usd" {
   description = "계정 전체 월 비용 알림 기준(USD). 근거는 README '예상 월 비용' 표."
   type        = number
-  default     = 40
+  default     = 20
 }
 
 variable "bedrock_budget_usd" {
@@ -37,13 +38,13 @@ variable "bedrock_cost_service_names" {
 }
 
 variable "enable_bedrock_stop" {
-  description = "Bedrock 예산을 실제로 100% 넘기면 두 앱 IAM 사용자에게 Bedrock 거부 정책을 자동으로 붙인다. 두 환경을 적용해 앱 사용자가 생긴 뒤 true로 켠다."
+  description = "Bedrock 예산을 실제로 100% 넘기면 앱 IAM 사용자에게 Bedrock 거부 정책을 자동으로 붙인다. bedrock_stop_environments의 앱 사용자가 모두 생긴 뒤 true로 켠다."
   type        = bool
   default     = false
 }
 
 variable "bedrock_stop_environments" {
-  description = "예산 초과 시 Bedrock 거부 정책을 붙일 앱 사용자의 환경 목록. dev를 내리면 여기서 빼고 bootstrap을 다시 적용한다."
+  description = "예산 초과 시 Bedrock 거부 정책을 붙일 앱 사용자의 환경 목록. dev만 쓸 때는 [\"dev\"], dev를 내리면 [\"main\"]으로 두고 bootstrap을 다시 적용한다."
   type        = list(string)
   default     = ["dev", "main"]
 

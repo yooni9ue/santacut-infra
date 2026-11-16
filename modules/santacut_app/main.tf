@@ -73,7 +73,10 @@ resource "aws_lightsail_instance_public_ports" "app" {
   }
 }
 
+# 도메인이 있을 때만 A 레코드를 만든다. 없으면 고정 IP로 접속한다(outputs.tf app_url).
 resource "aws_route53_record" "app" {
+  count = var.fqdn == null ? 0 : 1
+
   zone_id = var.zone_id
   name    = var.fqdn
   type    = "A"
