@@ -17,11 +17,17 @@ variable "ssh_public_key" {
 }
 
 variable "ssh_allowed_cidrs" {
-  description = "SSH 접속을 허용할 운영자 CIDR 목록."
+  description = "SSH(22) 접속을 허용할 운영자 CIDR 목록. 80/443은 이 값과 상관없이 모두에게 열려 있다."
   type        = list(string)
 }
 
 variable "bedrock_model_id" {
   description = "Claude Haiku 5.5 기반 모델 ID(anthropic.으로 시작). Global 추론 프로파일 ID는 모듈이 global.을 붙여 만든다."
   type        = string
+}
+
+variable "project_end_date" {
+  description = "프로젝트 종료일(YYYY-MM-DD). 모든 리소스의 ExpiresOn 태그에 넣는다. 철거 절차는 docs/operations.md 13절."
+  type        = string
+  default     = "2026-12-31"
 }

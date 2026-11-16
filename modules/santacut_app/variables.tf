@@ -32,7 +32,7 @@ variable "ssh_public_key" {
 }
 
 variable "ssh_allowed_cidrs" {
-  description = "SSH(22) 접속을 허용할 운영자 IPv4 CIDR 목록. 접두사 길이는 /24 이상이어야 한다."
+  description = "SSH(22) 접속을 허용할 운영자 IPv4 CIDR 목록. 접두사 길이는 /24 이상이어야 한다. 22번만 제한하고 80/443은 모두에게 열려 있어 프런트엔드 접속에는 영향이 없다."
   type        = list(string)
 
   validation {
@@ -68,9 +68,9 @@ variable "fqdn" {
 }
 
 variable "backup_retention_days" {
-  description = "S3 백업 객체가 최신 버전으로 남는 일수. 지나면 이전 버전으로 바뀐다."
+  description = "S3 백업 객체(backups/)가 최신 버전으로 남는 일수. 지나면 이전 버전으로 바뀐다. 프로젝트가 6주라 짧게 둔다."
   type        = number
-  default     = 30
+  default     = 14
 }
 
 variable "backup_noncurrent_days" {
@@ -86,5 +86,15 @@ variable "bedrock_model_id" {
   validation {
     condition     = startswith(var.bedrock_model_id, "anthropic.")
     error_message = "bedrock_model_id는 anthropic.으로 시작하는 기반 모델 ID여야 한다(global. 접두사 없이)."
+  }
+}
+
+variable "kms_key_arn" {
+  description = "이 환경의 KMS 키 ARN(bootstrap kms.tf, 별칭 alias/santacut-<env>). 백업 버킷 기본 암호화와 앱 IAM 권한에 쓴다."
+  type        = string
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/[0-9a-f-]+$", var.kms_key_arn))
+    error_message = "kms_key_arn은 별칭이 아니라 arn:aws:kms:<리전>:<계정>:key/<키 ID> 형식의 키 ARN이어야 한다."
   }
 }

@@ -17,7 +17,9 @@ resource "aws_lightsail_instance" "app" {
   blueprint_id      = var.blueprint_id
   bundle_id         = var.bundle_id
   key_pair_name     = aws_lightsail_key_pair.deploy.name
-  user_data         = file("${path.module}/cloud-init.sh")
+  user_data = templatefile("${path.module}/cloud-init.sh", {
+    backup_bucket = aws_s3_bucket.backup.bucket
+  })
 
   # IPv6 방화벽은 IPv4와 따로 관리되고 기본값이 전체 허용이다. AAAA 레코드가 없으니 IPv4만 쓴다.
   ip_address_type = "ipv4"

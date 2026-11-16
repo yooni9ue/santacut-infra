@@ -38,6 +38,7 @@ variables {
   ssh_public_key    = "ssh-ed25519 AAAATEST santacut-test"
   ssh_allowed_cidrs = ["203.0.113.10/32"]
   bedrock_model_id  = "anthropic.claude-haiku-test"
+  kms_key_arn       = "arn:aws:kms:ap-northeast-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab"
 }
 
 run "names_follow_environment_prefix" {
@@ -220,4 +221,117 @@ run "unknown_environment_is_rejected" {
   }
 
   expect_failures = [var.environment]
+}
+
+run "backup_bucket_uses_env_kms_key" {
+  command = apply
+
+  assert {
+    condition = length(aws_s3_bucket_server_side_encryption_configuration.backup.rule) == 1 && alltrue([
+      for r in aws_s3_bucket_server_side_encryption_configuration.backup.rule :
+      one(r.apply_server_side_encryption_by_default).sse_algorithm == "aws:kms" &&
+      one(r.apply_server_side_encryption_by_default).kms_master_key_id == var.kms_key_arn &&
+      r.bucket_key_enabled == true
+    ])
+    error_message = "백업 버킷은 이 환경 KMS 키로 SSE-KMS 기본 암호화하고 버킷 키를 써야 한다."
+  }
+
+  assert {
+    condition = length([
+      for st in data.aws_iam_policy_document.backup_tls_only.statement : st
+      if st.effect == "Deny" && contains(st.actions, "s3:PutObject") &&
+      anytrue([for c in st.condition : c.variable == "s3:x-amz-server-side-encryption" && c.values == tolist(["aws:kms"])])
+    ]) == 1
+    error_message = "버킷 정책은 aws:kms 없이 올리는 PutObject를 거부해야 한다."
+  }
+
+  assert {
+    condition = length([
+      for st in data.aws_iam_policy_document.backup_tls_only.statement : st
+      if st.effect == "Deny" && contains(st.actions, "s3:PutObject") &&
+      anytrue([for c in st.condition : c.variable == "s3:x-amz-server-side-encryption-aws-kms-key-id" && c.values == tolist([var.kms_key_arn])])
+    ]) == 1
+    error_message = "버킷 정책은 이 환경 키가 아닌 KMS 키로 올리는 PutObject를 거부해야 한다."
+  }
+}
+
+run "lifecycle_expires_only_backups_prefix" {
+  command = apply
+
+  assert {
+    condition = length(aws_s3_bucket_lifecycle_configuration.backup.rule) == 1 && alltrue([
+      for r in aws_s3_bucket_lifecycle_configuration.backup.rule :
+      r.status == "Enabled" && one(r.filter).prefix == "backups/"
+    ])
+    error_message = "수명 주기 규칙은 backups/ 접두사에만 걸려야 한다(config/는 만료되면 안 된다)."
+  }
+
+  assert {
+    condition = alltrue([
+      for r in aws_s3_bucket_lifecycle_configuration.backup.rule :
+      one(r.expiration).days == 14 && one(r.noncurrent_version_expiration).noncurrent_days == 7
+    ])
+    error_message = "백업은 14일 뒤 이전 버전이 되고, 그로부터 7일 뒤 삭제되어야 한다."
+  }
+}
+
+run "app_policy_is_limited_to_env_kms_key_and_prefixes" {
+  command = apply
+
+  assert {
+    condition = alltrue([
+      for st in data.aws_iam_policy_document.app.statement :
+      st.resources == toset([var.kms_key_arn]) if anytrue([for a in st.actions : startswith(a, "kms:")])
+    ])
+    error_message = "앱 IAM 정책의 KMS 권한은 이 환경 키에만 걸려야 한다."
+  }
+
+  assert {
+    condition = length([
+      for st in data.aws_iam_policy_document.app.statement : st
+      if st.actions == toset(["kms:Decrypt", "kms:GenerateDataKey"]) &&
+      anytrue([for c in st.condition : c.variable == "kms:ViaService" && c.values == tolist(["s3.ap-northeast-2.amazonaws.com"])])
+    ]) == 1
+    error_message = "앱 IAM 정책은 S3를 거친 kms:Decrypt, kms:GenerateDataKey만 허용해야 한다."
+  }
+
+  assert {
+    condition = alltrue([
+      for st in data.aws_iam_policy_document.app.statement :
+      alltrue([for r in st.resources : endswith(r, "/backups/*")]) if contains(st.actions, "s3:PutObject")
+    ])
+    error_message = "앱 사용자는 backups/에만 쓸 수 있어야 한다."
+  }
+
+  assert {
+    condition = anytrue([
+      for st in data.aws_iam_policy_document.app.statement :
+      st.actions == toset(["s3:GetObject"]) && st.resources == toset(["arn:aws:s3:::santacut-dev-backup-123456789012/config/*"])
+    ])
+    error_message = "앱 사용자는 config/를 읽기만 해야 한다."
+  }
+}
+
+run "cloud_init_fetches_secrets_from_own_bucket" {
+  command = plan
+
+  assert {
+    condition     = strcontains(aws_lightsail_instance.app.user_data, "santacut-dev-backup-123456789012/config/app.env")
+    error_message = "첫 부팅 스크립트는 자기 환경 백업 버킷의 config/app.env를 받아야 한다."
+  }
+
+  assert {
+    condition     = !strcontains(aws_lightsail_instance.app.user_data, " age ")
+    error_message = "첫 부팅 스크립트에 age 설치가 남아 있으면 안 된다."
+  }
+}
+
+run "kms_alias_instead_of_arn_is_rejected" {
+  command = plan
+
+  variables {
+    kms_key_arn = "alias/santacut-dev"
+  }
+
+  expect_failures = [var.kms_key_arn]
 }

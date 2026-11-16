@@ -26,6 +26,7 @@ provider "aws" {
       Project     = "santacut"
       Environment = "main"
       ManagedBy   = "terraform"
+      ExpiresOn   = var.project_end_date
     }
   }
 }
@@ -42,6 +43,11 @@ data "aws_route53_zone" "main" {
   name = local.domain
 }
 
+# bootstrap kms.tf가 만든 이 환경 키. 별칭으로 찾으므로 레포 변수가 필요 없다. bootstrap을 먼저 적용해야 한다.
+data "aws_kms_alias" "env" {
+  name = "alias/santacut-main"
+}
+
 module "app" {
   source = "../../modules/santacut_app"
 
@@ -53,4 +59,5 @@ module "app" {
   ssh_allowed_cidrs = var.ssh_allowed_cidrs
 
   bedrock_model_id = var.bedrock_model_id
+  kms_key_arn      = data.aws_kms_alias.env.target_key_arn
 }

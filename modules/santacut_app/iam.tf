@@ -1,5 +1,5 @@
 # Lightsail 인스턴스는 IAM 역할을 쓸 수 없어 앱 전용 IAM 사용자를 둔다.
-# 액세스 키는 상태 파일에 남지 않도록 Terraform이 아니라 사람이 발급한다(docs/operations.md).
+# 액세스 키는 상태 파일에 남지 않도록 Terraform이 아니라 사람이 발급해 인스턴스에 직접 쓴다(docs/operations.md 6절).
 locals {
   inference_profile_id  = "global.${var.bedrock_model_id}"
   inference_profile_arn = "arn:aws:bedrock:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${local.inference_profile_id}"
@@ -48,12 +48,34 @@ data "aws_iam_policy_document" "app" {
     resources = [aws_s3_bucket.backup.arn]
   }
 
+  # 앱 설정(config/)은 읽기만 한다. 앱 키가 유출돼도 설정을 바꿔치기할 수 없다.
+  statement {
+    sid       = "ReadConfigObjects"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.backup.arn}/config/*"]
+  }
+
   # 백업 업로드와 복구용 읽기만 허용한다. 삭제 권한은 주지 않고 만료는 수명 주기 규칙이 맡는다.
   statement {
     sid       = "ReadWriteBackupObjects"
     effect    = "Allow"
     actions   = ["s3:PutObject", "s3:GetObject"]
-    resources = ["${aws_s3_bucket.backup.arn}/*"]
+    resources = ["${aws_s3_bucket.backup.arn}/backups/*"]
+  }
+
+  # SSE-KMS 객체를 읽고 쓰려면 이 환경 키가 필요하다. S3를 거친 요청만 허용해 키를 직접 쓰지 못하게 한다.
+  statement {
+    sid       = "UseEnvKmsKeyThroughS3"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [var.kms_key_arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["s3.${data.aws_region.current.region}.amazonaws.com"]
+    }
   }
 }
 

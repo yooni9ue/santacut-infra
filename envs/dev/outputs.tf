@@ -27,3 +27,8 @@ output "app_iam_user" {
   description = "dev 앱 IAM 사용자."
   value       = module.app.app_iam_user
 }
+
+output "kms_key_arn" {
+  description = "dev KMS 키 ARN. backup.env의 sse_kms_key_id에 넣는다."
+  value       = module.app.kms_key_arn
+}

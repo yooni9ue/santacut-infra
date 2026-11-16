@@ -1,4 +1,6 @@
-# 인스턴스 밖에 두는 SQLite 암호화 백업. 앱 레포 backup.sh가 age로 암호화해 rclone으로 올린다.
+# 인스턴스 밖에 두는 SQLite 백업과 암호화된 앱 설정. 둘 다 환경별 KMS 키로 서버 쪽 암호화(SSE-KMS)한다.
+# - backups/: 앱 레포 backup.sh가 rclone으로 올린다. 수명 주기 규칙으로 만료된다.
+# - config/app.env: 운영자가 scripts/put-secrets.sh로 올리고, 인스턴스가 부팅 때 받는다. 만료되지 않는다.
 resource "aws_s3_bucket" "backup" {
   bucket = "${local.name}-backup-${data.aws_caller_identity.current.account_id}"
 }
@@ -25,8 +27,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "backup" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = var.kms_key_arn
     }
+
+    # 객체마다 KMS를 부르지 않고 버킷 키를 써서 KMS 요청 요금을 줄인다.
+    bucket_key_enabled = true
   }
 }
 
@@ -42,11 +48,14 @@ resource "aws_s3_bucket_versioning" "backup" {
 resource "aws_s3_bucket_lifecycle_configuration" "backup" {
   bucket = aws_s3_bucket.backup.id
 
+  # backups/만 만료한다. config/app.env는 이 규칙에 걸리지 않아 지워지지 않는다.
   rule {
     id     = "expire-old-backups"
     status = "Enabled"
 
-    filter {}
+    filter {
+      prefix = "backups/"
+    }
 
     expiration {
       days = var.backup_retention_days
@@ -64,6 +73,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup" {
   depends_on = [aws_s3_bucket_versioning.backup]
 }
 
+# TLS 전용 + SSE-KMS 강제.
 data "aws_iam_policy_document" "backup_tls_only" {
   statement {
     sid     = "DenyInsecureTransport"
@@ -83,6 +93,44 @@ data "aws_iam_policy_document" "backup_tls_only" {
       test     = "Bool"
       variable = "aws:SecureTransport"
       values   = ["false"]
+    }
+  }
+
+  # 올리는 쪽이 SSE-KMS를 명시하지 않으면 거부한다. 기본 암호화가 있어도 클라이언트 설정 실수를 바로 드러낸다.
+  statement {
+    sid       = "DenyPutWithoutKms"
+    effect    = "Deny"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backup.arn}/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "s3:x-amz-server-side-encryption"
+      values   = ["aws:kms"]
+    }
+  }
+
+  # aws:kms만 주고 키를 빼면 AWS 관리형 키(aws/s3)로 암호화된다. 이 환경 키 ARN을 명시해야만 올릴 수 있다.
+  statement {
+    sid       = "DenyPutWithOtherKmsKey"
+    effect    = "Deny"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backup.arn}/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "s3:x-amz-server-side-encryption-aws-kms-key-id"
+      values   = [var.kms_key_arn]
     }
   }
 }
