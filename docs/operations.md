@@ -256,10 +256,11 @@ Compose는 `env_file`을 `up`할 때만 읽는다. 설정을 바꿨으면 `docke
 
 ### 번들과 메모리
 
-모듈 기본 번들 `nano_3_0`은 메모리가 512MB라 Caddy와 Spring을 함께 돌리기에 빠듯했다. 그래서 dev는 2026-11-16에 `micro_3_0`(1GB)으로 올렸다(기동 212초 → 26초). 아래 제한은 512MB 때 정한 값을 그대로 둔다.
+모듈 기본 번들 `nano_3_0`은 메모리가 512MB라 Caddy와 Spring을 함께 돌리기에 빠듯했다. 그래서 dev는 2026-11-16에 `micro_3_0`(1GB)으로 올렸다(기동 212초 → 26초). 2026-11-17에는 부하 시험과 NMT 측정으로 앱 메모리 설정을 다시 잡았다.
 
 - 첫 부팅 스크립트가 1GB 스왑(`/swapfile`)을 만들고 `vm.swappiness=10`으로 둔다. 스왑은 비상용이다.
-- 앱 레포 Compose가 메모리를 나눈다. 앱 `mem_limit: 400m`(JVM `-Xmx256m`, SerialGC, `-Xss512k`, `ExitOnOutOfMemoryError`), Caddy `mem_limit: 64m`.
+- 앱 레포 Compose가 메모리를 나눈다. 앱 `mem_limit: 512m`(JVM `-Xms64m -Xmx256m -Xmn24m`, `-XX:MaxMetaspaceSize=160m`, `-XX:ReservedCodeCacheSize=48m`, SerialGC, `-Xss512k`, `ExitOnOutOfMemoryError`, `MALLOC_ARENA_MAX=2`), Caddy `mem_limit: 64m`.
+- 앱 이미지는 JVM AOT 캐시(`/app/app.aot`)로 뜬다. 기동이 26초에서 12초로, 30명 부하 뒤 메타스페이스가 133MB에서 32MB로 줄었다. 캐시가 어긋나도 캐시 없이 뜬다. 측정표는 앱 레포 `backend/docs/deployment.md`에 있다.
 - 컨테이너가 OOM으로 죽거나 응답이 느려지면 사양을 올린다. `bundle_id`를 바꾸고 9절의 인스턴스 교체 절차를 따른다.
 
 ### `/opt/santacut/backup.env` (권한 600, 소유자 ubuntu)
@@ -430,7 +431,7 @@ done
    sudo rm -f "$vol/santacut.db-wal" "$vol/santacut.db-shm"
    ```
 
-6. 앱을 띄우고 healthy가 된 뒤 Caddy를 띄운다. Caddy는 앱이 healthy여야 뜬다(`depends_on: service_healthy`). 앱이 뜨는 데 30~40초 걸린다.
+6. 앱을 띄우고 healthy가 된 뒤 Caddy를 띄운다. Caddy는 앱이 healthy여야 뜬다(`depends_on: service_healthy`). AOT 캐시를 쓴 뒤로 앱은 12초 안팎에 뜬다(리허설 때는 30~40초).
 
    ```sh
    $compose start app
