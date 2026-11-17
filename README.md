@@ -63,6 +63,19 @@
 - DB는 매시 S3 `backups/`에도 올린다(`backup.sh`, cron). 버킷이 환경별 KMS 키로 암호화한다(SSE-KMS). 14일 뒤 이전 버전이 되고 7일 뒤 영구 삭제되어 최대 21일 남는다.
 - AI 점수는 Google Gemini 3.5 Flash-Lite가 낸다. AWS 밖의 서비스라 IAM 권한이 없다. Bedrock은 쓰지 않는다.
 
+### 메모리와 JVM
+
+1GB 한 대에 Caddy와 앱을 함께 띄운다. 메모리 설정은 앱 레포 Compose(`backend/ci-cd/deploy/compose.yml`)와 Dockerfile에 있다.
+
+| 항목 | 값 |
+| --- | --- |
+| 앱 컨테이너 | `mem_limit: 512m`. 힙 `-Xms64m -Xmx256m -Xmn24m`, 메타스페이스 상한 160MB, 코드 캐시 48MB, SerialGC, `-Xss512k`, `MALLOC_ARENA_MAX=2` |
+| JVM AOT 캐시 | 이미지를 빌드할 때 `/app/app.aot`를 만들고 `-XX:AOTCache`로 띄운다. 기동 26초 → 12초, 30명 부하 뒤 메타스페이스 133MB → 32MB, 유휴 컨테이너 372MiB → 346MiB |
+| Caddy | `mem_limit: 64m` |
+| 스왑 | 첫 부팅 때 1GB `/swapfile`, `vm.swappiness=10`. 비상용이다 |
+
+분석 채점은 작업 3개를 동시에 한다. dev에서 30명이 한꺼번에 올려도 결과까지 p95 33초, 재시작 0번이었다(시간당 약 3,200건).
+
 ### 도메인
 
 `santacut.me`는 가비아에서 샀고, 네임서버를 Route 53 호스팅 영역(bootstrap)으로 위임했다.
@@ -107,7 +120,8 @@ sequenceDiagram
 
 ### 앱 배포(앱 레포)
 
-- `develop` 푸시: 앱 레포 CI가 테스트 → GHCR 이미지 게시 → dev 배포를 한다. `santacut-app-deploy-dev` 역할을 OIDC로 맡아 러너 IP에만 22번을 열고, 검증한 이미지 digest로 바꾼 뒤 포트를 닫는다.
+- `develop` 푸시: 앱 레포 CI가 테스트 → GHCR 이미지 게시 → dev 배포를 한다. `santacut-app-deploy-dev` 역할을 OIDC로 맡아 러너 IP에만 22번을 열고, 검증한 이미지 digest로 바꾼 뒤 포트를 닫는다. 닫은 뒤에는 러너 CIDR이 빠졌는지, 운영자 CIDR은 남았는지 확인한다.
+- 순서 보호: 늦게 끝난 옛 실행이 새 배포를 덮지 않게 한다. develop 머리에 더 새 백엔드 변경이 있거나 서버 릴리스가 이미 이 커밋을 품고 있으면 notice만 남기고 건너뛴다. 같은 커밋을 다시 배포하려면 서버에서 `deploy.sh`를 직접 돌린다.
 - `main` 푸시: 이미지 게시까지만 한다. 운영 배포는 앱 레포의 수동 실행(`deploy=true`)이다.
 
 ### 관측과 알람
@@ -116,9 +130,15 @@ sequenceDiagram
 | --- | --- | --- |
 | `health.yml`: `https://api-dev.santacut.me` 응답과 마지막 S3 백업(3시간 이내) | 매시 07분 | 워크플로 실패 메일 |
 | Lightsail 알람 `santacut-dev-status`(상태 확인 실패), `santacut-dev-burst`(버스트 용량 20% 이하) | 상태 확인 실패 2번, 버스트 3번 연속 | 메일(CLI로 건다, 연락처 인증 필요) |
-| AWS Budgets | 계정 월 20달러 | 메일 |
+| AWS Budgets `santacut-monthly` | 계정 월 20달러의 실제 80%·100%, 예측 100% | 메일 |
 
-자세한 절차는 [운영 문서 8절](docs/operations.md#8-관측과-알람)에 있다.
+알람과 예산 알림은 같은 메일 주소로 간다. Lightsail 연락처는 인증 메일 링크를 눌러야 발송된다. 자세한 절차는 [운영 문서 8절](docs/operations.md#8-관측과-알람)에 있다.
+
+### 백업과 복원 리허설
+
+- 매시 `backup.sh`가 SQLite를 `.backup`으로 떠서 S3 `backups/sqlite/`에 올리고, 다시 내려받아 대조한다. 사본은 데이터 볼륨(`/app/data/backup-tmp`)에 떴다가 바로 지운다. 컨테이너 `/tmp`는 64MB tmpfs라 DB가 커지면 실패하기 때문이다.
+- 2026-11-17 dev에서 S3 백업으로 복원을 리허설했다. 앱이 멈춘 시간은 37초, 내려받기부터 확인까지 56초였고 DB 지문이 일치했다. 3시간 전 객체와 가장 오래된 객체(약 11시간 전)도 KMS로 풀려 `integrity_check`가 `ok`였다.
+- 절차는 [운영 문서 9절](docs/operations.md#9-백업과-복구)에 있다.
 
 ## 보안·격리
 
@@ -149,7 +169,7 @@ flowchart LR
 
 | 항목 | 월 비용(USD) | 근거 |
 | --- | ---: | --- |
-| Lightsail `micro_3_0` × 1 (dev) | 7 | 1GB·2 vCPU·40GB, 공인 IPv4 포함. 2026-11-16에 512MB에서 올렸다(기동 212초 → 26초). `get-bundles`로 서울 가격 확인 |
+| Lightsail `micro_3_0` × 1 (dev) | 7 | 1GB·2 vCPU·40GB, 공인 IPv4 포함. 2026-11-16에 512MB에서 올렸다(기동 212초 → 26초, JVM AOT 캐시 뒤 12초). `get-bundles`로 서울 가격 확인 |
 | 자동 스냅숏 | 약 0.5 | GB당 0.05, 증분(추정) |
 | Route 53 호스팅 영역 | 0.5 | `santacut.me` 하나. 질의 요금은 미미하다 |
 | S3(상태·백업·설정) | 1 미만 | 수 GB 이하 |
