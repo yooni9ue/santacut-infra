@@ -50,7 +50,7 @@ bootstrap은 환경마다 KMS 키 하나(`alias/santacut-dev`, `alias/santacut-m
 - `domain_name`을 비워 두면 Route 53 호스팅 영역과 A 레코드를 만들지 않는다. 비용은 0이다.
 - 레포 변수 `DOMAIN_NAME`도 비워 둔다. CI가 빈 문자열을 넘겨도 도메인 없음으로 처리한다.
 - 접속 주소는 각 환경 출력값 `app_url`이다. `http://<static_ip>` 형식이다.
-- Caddy는 도메인이 있어야 TLS 인증서를 받는다. 그전에는 HTTP로만 접속한다. 앱 설정에서 `DOMAIN`을 비우면 앱 레포 Caddyfile이 `:80`으로 받는다. `PUBLIC_BASE_URL=http://<static_ip>`, `SESSION_SECURE=false`로 둔다.
+- Caddy는 도메인이 있어야 TLS 인증서를 받는다. 그전에는 HTTP로만 접속한다. 앱 설정에서 `DOMAIN`을 비우면 앱 레포 Caddyfile이 `:80`으로 받는다. `PUBLIC_BASE_URL=http://<static_ip>`로 둔다. 다만 앱의 운영 프로필은 `SESSION_SECURE=true`가 아니면 뜨지 않으므로(앱 레포 `backend/docs/deployment.md`), 평문 HTTP로는 서버에 배포하지 않는다.
 - HTTP는 암호화되지 않는다. 실제 사용자 데이터는 도메인과 TLS를 갖춘 뒤 받는다.
 - 상태 확인 워크플로(`health.yml`)는 `DOMAIN_NAME`이 비어 있으면 건너뛴다.
 
@@ -211,12 +211,17 @@ ssh ubuntu@$ip 'stat -c "%a %U" /opt/santacut/aws/credentials'   # 600 ubuntu
 DOMAIN=
 ACME_EMAIL=
 PUBLIC_BASE_URL=http://<static_ip>
-SESSION_SECURE=false            # 도메인과 HTTPS를 쓸 때만 true
+SESSION_SECURE=true             # 앱 운영 프로필은 HTTPS 전용이라 꼭 true다. 없거나 false면 앱이 뜨지 않는다
 APP_SEASON_YEAR=2026
 # Google AI Studio에서 받은 Gemini API 키. 앱은 이 키가 없으면 뜨지 않는다.
 GEMINI_API_KEY=<Gemini API 키>
 # dev에만 둔다. 프롬프트 관리 API(/v1/admin/prompts)를 켠다. main에서는 이 줄을 빼 404로 둔다.
 PROMPT_ADMIN_ENABLED=true
+# dev에만 둔다. 관리 API 토큰. 요청은 X-Admin-Token 헤더로 보낸다. 없으면 위 값이 true여도 API가 뜨지 않는다(404).
+# 이 파일(KMS 암호화)에만 두고 출력하지 않는다. 예: openssl rand -hex 32
+PROMPT_ADMIN_TOKEN=<관리 토큰>
+# dev에만 둔다. Swagger UI와 OpenAPI 명세를 켠다. 운영 프로필 기본값은 꺼짐(404)이다.
+SWAGGER_ENABLED=true
 # 비공개 GHCR 이미지를 받을 때만 넣는다. read:packages 권한만 준 토큰을 쓰고, 따옴표 없이 적는다.
 # 앱 컨테이너에는 넘어가지 않는다(위 fetch-secrets.sh 설명).
 GHCR_USER=<GitHub 사용자>
